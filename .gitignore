@@ -1,0 +1,4 @@
+*.o
+moc_*
+*.user
+s4wd

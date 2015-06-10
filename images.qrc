@@ -1,0 +1,21 @@
+<RCC>
+    <qresource prefix="/">
+        <file>backimage3.jpg</file>
+        <file>down.png</file>
+        <file>up.png</file>
+        <file>needle.png</file>
+        <file>ampgauge.png</file>
+        <file>voltgauge.png</file>
+        <file>bat.png</file>
+        <file>back.png</file>
+        <file>config.png</file>
+        <file>gauge.png</file>
+        <file>shutdown.png</file>
+        <file>tick.png</file>
+        <file>muteoff.png</file>
+        <file>muteon.png</file>
+        <file>batcharge.png</file>
+        <file>wifioff.png</file>
+        <file>wifion.png</file>
+    </qresource>
+</RCC>
