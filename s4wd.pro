@@ -32,7 +32,7 @@ HEADERS  += widget.h \
 FORMS    += widget.ui
 
 RESOURCES += \
-    images.qrc
+    icons.qrc
 
 
 

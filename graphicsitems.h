@@ -28,8 +28,8 @@
 #define SPINNER_HOLD_PRESS_TIMEOUT      180
 
 #ifdef Q_OS_WIN
-#define S4WD_CONFIGURATION_FILE         "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Config\\s4wd.ini"
-#define S4WD_DEBUG_FILE                 "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Debug\\%1s4wd.dbg"
+#define S4WD_CONFIGURATION_FILE         "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Config\\s4wd.ini"
+#define S4WD_DEBUG_FILE                 "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Debug\\%1s4wd.dbg"
 #else
 #define S4WD_CONFIGURATION_FILE         "/home/s4wd/config/s4wd.ini"
 #define S4WD_CONFIGURATION_BAK_FILE     "/home/s4wd/config/s4wdbak.ini"

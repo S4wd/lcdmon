@@ -11,8 +11,8 @@
 #include <QDateTime>
 
 #ifdef Q_OS_WIN
-#define TEMPERATURE_LOGGING_FILE               "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Temp\\%1temp"
-#define TEMPERATURE_META_FILE                  "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Temp\\meta"
+#define TEMPERATURE_LOGGING_FILE               "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Temp\\%1temp"
+#define TEMPERATURE_META_FILE                  "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Temp\\meta"
 #else
 #define TEMPERATURE_LOGGING_FILE               "/home/s4wd/logging/temperature/%1temp"
 #define TEMPERATURE_META_FILE                  "/home/s4wd/logging/temperature/meta"

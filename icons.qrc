@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/back.png</file>
+        <file>icons/backimage3.jpg</file>
+        <file>icons/bat.png</file>
+        <file>icons/batcharge.png</file>
+        <file>icons/config.png</file>
+        <file>icons/down.png</file>
+        <file>icons/gauge.png</file>
+        <file>icons/muteoff.png</file>
+        <file>icons/muteon.png</file>
+        <file>icons/shutdown.png</file>
+        <file>icons/tick.png</file>
+        <file>icons/up.png</file>
+        <file>icons/wifioff.png</file>
+        <file>icons/wifion.png</file>
+    </qresource>
+</RCC>
