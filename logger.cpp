@@ -1,80 +1,70 @@
 #include "logger.h"
 
-Logger::Logger(QObject *parent)
+LoggerAgent::LoggerAgent(QObject *parent)
 {
     parent = 0;
-    getParams();
-
 }
 
-Logger::~Logger()
+LoggerAgent::~LoggerAgent()
 {
 }
 
 
-void Logger::SlotNewRecord(QStringList sample)
+void LoggerAgent::SlotNewRecord(QStringList sample)
 {
-    logToFile(sample);
+    ProfileLog(sample);
 }
 
-void Logger::getParams()
+void LoggerAgent::SlotStartNewLogSession(bool charge)
 {
-    QSettings settings(QString(TEMPERATURE_META_FILE), QSettings::IniFormat);
+    charging = charge;
 
-    settings.beginGroup(QString("logger"));
-    filePrefix = settings.value(QString("prefix")).toInt();
-    samplesCaptured = settings.value(QString("sample")).toInt();
+    QDateTime dateTime = dateTime.currentDateTime();
+    session = dateTime.toString("ddd_dd_HH_mm");
 
+    QDir dir;
+    if (charge)
+        dir.setPath(QString(CHARGE_PROFILE_LOG_DIR));
+    else
+        dir.setPath(QString(DISCHARGE_PROFILE_LOG_DIR));
 
-    qDebug() << QString("Get Temp Prefix: %1").arg(filePrefix);
-    qDebug() << QString("Get Temp Samples: %1").arg(samplesCaptured);
-    settings.endGroup();
-
+    if (dir.mkdir(session))
+        qDebug() << QString("New session: %1").arg(session);
 }
 
-void Logger::setParams()
+// Charge - volts, battery and ambient temperatures
+// Discharge - volts, current, motor, controller, ambient, gps
+void LoggerAgent::ProfileLog(QStringList record)
 {
-    QSettings settings(QString(TEMPERATURE_META_FILE), QSettings::IniFormat);
-
-    settings.beginGroup(QString("logger"));
-    settings.setValue( QString("prefix"), QVariant(filePrefix).toString() );
-    settings.setValue( QString("sample"), QVariant(samplesCaptured).toString() );
-
-    qDebug() << QString("Set Temp Prefix: %1").arg(filePrefix);
-    qDebug() << QString("Set Temp Samples: %1").arg(samplesCaptured);
-    settings.endGroup();
-}
-
-void Logger::logToFile(QStringList record)
-{
-
-
-    if (samplesCaptured == 1000)
+    if (record.empty())
     {
-        samplesCaptured = 0;
-        filePrefix += 1;
-        setParams();
+        if (charging)
+            qDebug() << "Ccharge profile emtpy record.";
+        else
+            qDebug() << "Discharge profile emtpy record.";
+        return;
+    }
 
-        //qDebug() << QString("Temp Prefix: %1").arg(filePrefix);
+    QString logfile;
+    if (charging)
+        logfile = QString(CHARGE_PROFILE_LOG_FILE).arg(session);
+    else
+        logfile = QString(DISCHARGE_PROFILE_LOG_FILE).arg(session);
+
+    QFile f(logfile);
+    f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+    QTextStream out(&f);
+    out << record.at(0);
+
+    for (int i=1; i<record.count(); i++)
+    {
+        out << record[i];
+        out << endl;
     }
 
 
-    QFile f(QString(TEMPERATURE_LOGGING_FILE).arg(filePrefix));
-    f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
-    QTextStream out(&f);
-    QDateTime dateTime = dateTime.currentDateTime();
-
-    QString dateTimeString = dateTime.toString("yy-MM-dd hh:mm:ss");
-    out << dateTimeString;
-
-    for (int i=0; i<record.count(); i++)
-        out << QString(",%1").arg(record.at(i).toLatin1().data());
-
-    out << endl;
     f.close();
-
-    samplesCaptured++;
-    qDebug() << QString("Temp Samples captured: %1").arg(samplesCaptured);
-    setParams();
 }
+
+
 

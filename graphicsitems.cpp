@@ -238,8 +238,11 @@ CustomScene::CustomScene(QObject *parent)
 
 
     QObject::connect(&FlashTimer, SIGNAL(timeout()), this, SLOT(SlotFlashTimerTimeout()));
+    QObject::connect(&DataCaptureTimer, SIGNAL(timeout()), this, SLOT(SlotDataCaptureTimerTimeout()));
 
-    TempLoggerSetup();
+
+    LoggerSetup();
+    GpsSetup();
     IOAgentSetup();
     PowerAgentSetup();
     TemperatureSetup();
@@ -277,6 +280,8 @@ CustomScene::CustomScene(QObject *parent)
     ChangeView(&DrivingView);
 
 
+    ChargeProfileActive = true;
+    DataCaptureTimer.start(CHARGE_PROFILE_DATA_CAPTURE_TIME);
 }
 
 CustomScene::~CustomScene()
@@ -823,6 +828,8 @@ void CustomScene::SlotSpinnerDownActiveTimerTimeout()
 }
 
 
+
+
 void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent *mouseEvent)
 {
     mouseEvent->accept();
@@ -1342,7 +1349,7 @@ void CustomScene::SlotPowerNewReadings(QStringList readings)
 
 
     float voltage = readings[1].toFloat();
-    if (voltage >= 40 && voltage < 52.1)
+    if (voltage >= 42 && voltage < 61)
         powerDevice.Voltage.reading = voltage;
 
     DevicesUpdateAlarmStatus();
@@ -1352,6 +1359,43 @@ void CustomScene::SlotIOBat12VState(bool state)
 {
     ioDevice.Bat12VGood = state;
     Bat12V.setState(state);
+}
+
+void CustomScene::SlotGpsNewData(QStringList newData)
+{
+    if (newData.count() != 5)
+    {
+        qDebug() << "Gps data missing.";
+        return;
+    }
+
+    gpsData.latitude = newData[0];
+    gpsData.longitude = newData[1];
+    gpsData.speed = newData[2];
+    gpsData.altitude = newData[3];
+    gpsData.heading = newData[4];
+
+    float speed = gpsData.speed.toFloat();
+    if (speed == 0)
+    {
+        if (!ChargeProfileActive)
+        {
+            emit SignalLoggingProfileChanged(true);
+            DataCaptureTimer.start(CHARGE_PROFILE_DATA_CAPTURE_TIME);
+        }
+
+        ChargeProfileActive = true;
+    }
+    else
+    {
+        if (ChargeProfileActive)
+        {
+            emit SignalLoggingProfileChanged(false);
+            DataCaptureTimer.start(DISCHARGE_PROFILE_DATA_CAPTURE_TIME);
+        }
+
+        ChargeProfileActive = false;
+    }
 }
 
 
@@ -1388,14 +1432,42 @@ void CustomScene::SlotFlashTimerTimeout()
 
 void CustomScene::SlotLoggingTimerTimeout()
 {
+    emit SignalLoggingNewRecord(loggerData);
+    loggerData.clear();
+}
+
+void CustomScene::SlotDataCaptureTimerTimeout()
+{
+    QDateTime dateTime = dateTime.currentDateTime();
     QString s;
-    QStringList Record;
+    QString thisRecord;
+    if (ChargeProfileActive)
+    {
+        QString timeNow = dateTime.toString("MM/dd HH:mm");
+        thisRecord.append(timeNow);
+        for (int i=0; i<=tdBackAmbient; i++)
+            thisRecord.append( QString(",%1").arg(s.number( tempDevice[i].HighTemp, 'f', 1)) );
 
-    // temperatures
-    for (int i=tdBatA; i<=tdFrontAmbient; i++)
-        Record << QString("%1").arg( s.number( tempDevice[i].HighTemp, 'f', 1) );
+        thisRecord.append(QString(",%1").arg(s.number( tempDevice[tdFrontAmbient].HighTemp, 'f', 1)) );
+        thisRecord.append(QString(",%1").arg(s.number( powerDevice.Voltage.reading, 'f', 1)) );
 
-    emit SignalLoggingNewRecord(Record);
+        loggerData << thisRecord;
+    }
+    else
+    {
+        QString timeNow = dateTime.toString("MM/dd HH:mm:ss");
+        thisRecord.append(timeNow);
+        thisRecord.append(QString(",%1").arg(s.number( tempDevice[tdMotor].HighTemp, 'f', 1)) );
+        thisRecord.append(QString(",%1").arg(s.number( tempDevice[tdController].HighTemp, 'f', 1)) );
+        thisRecord.append(QString(",%1").arg(s.number( powerDevice.Voltage.reading, 'f', 1)) );
+        thisRecord.append(QString(",%1").arg(s.number( powerDevice.Current.reading, 'f', 1)) );
+        thisRecord.append(QString(",%1").arg(gpsData.altitude));
+        thisRecord.append(QString(",%1").arg(gpsData.heading));
+        thisRecord.append(QString(",%1").arg(gpsData.speed));
+
+
+        loggerData << thisRecord;
+    }
 }
 
 void CustomScene::SlotBusInitialised(int threadno)
@@ -1719,15 +1791,18 @@ void CustomScene::DevicesUpdateAlarmStatus()
 }
 
 
-void CustomScene::TempLoggerSetup()
+void CustomScene::LoggerSetup()
 {
     QObject::connect(&LoggingTimer, SIGNAL(timeout()), this, SLOT(SlotLoggingTimerTimeout()));
 
-    TempLogger.moveToThread(&LoggerThread);
-    QObject::connect(this, SIGNAL(SignalLoggingNewRecord(QStringList)), &TempLogger, SLOT(SlotNewRecord(QStringList)));
+
+
+    Logger.moveToThread(&LoggerThread);
+    QObject::connect(this, SIGNAL(SignalLoggingNewRecord(QStringList)), &Logger, SLOT(SlotNewRecord(QStringList)));
+    QObject::connect(this, SIGNAL(SignalLoggingProfileChanged(bool)), &Logger, SLOT(SlotStartNewLogSession(bool)));
     LoggerThread.start();
 
-    LoggingTimer.start(60000);
+    LoggingTimer.start(309000);
 }
 
 void CustomScene::PowerAgentSetup()
@@ -1913,6 +1988,19 @@ void CustomScene::TemperatureSetup()
     BusThread[3].start();
 
 
+
+}
+
+void CustomScene::GpsSetup()
+{
+    qDebug() << "Gps setup";
+    Gps.moveToThread(&GpsThread);
+    QObject::connect(&Gps, SIGNAL(SignalNewData(QStringList)), this, SLOT(SlotGpsNewData(QStringList)));
+    QObject::connect(this, SIGNAL(SignalGpsInitialise()), &Gps, SLOT(SlotInitialise()));
+
+    GpsThread.start();
+
+    emit SignalGpsInitialise();
 
 }
 

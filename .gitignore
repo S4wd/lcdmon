@@ -4,6 +4,9 @@ moc_*
 *.pdb
 /debug
 /release
-Makefile.debug
-Makefile.Release
+*.debug
+*.Release
 s4wd
+/Data/Charge/
+/Data/Discharge/
+Makefile

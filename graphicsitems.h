@@ -20,6 +20,7 @@
 #include "busagent.h"
 #include "ioagent.h"
 #include "poweragent.h"
+#include "gpsagent.h"
 #include "logger.h"
 
 
@@ -27,14 +28,9 @@
 #define SPINNER_HOLD_PRESS_TRIGGER      200
 #define SPINNER_HOLD_PRESS_TIMEOUT      180
 
-#ifdef Q_OS_WIN
-#define S4WD_CONFIGURATION_FILE         "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Config\\s4wd.ini"
-#define S4WD_DEBUG_FILE                 "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Debug\\%1s4wd.dbg"
-#else
-#define S4WD_CONFIGURATION_FILE         "/home/s4wd/config/s4wd.ini"
-#define S4WD_CONFIGURATION_BAK_FILE     "/home/s4wd/config/s4wdbak.ini"
-#define S4WD_DEBUG_FILE                 "/home/s4wd/config/%1s4wd.dbg"
-#endif
+#define CHARGE_PROFILE_DATA_CAPTURE_TIME    120000
+#define DISCHARGE_PROFILE_DATA_CAPTURE_TIME 4000
+
 
 #define HIGHER_TEMP(a,b,c)     a = (b > c) ? b:c
 
@@ -54,6 +50,8 @@
 #define PNG_IMAGE_WIFI_ON               ":/icons/wifion.png"
 #define PNG_IMAGE_WIFI_OFF              ":/icons/wifioff.png"
 #define PNG_IMAGE_BAT                   ":/icons/bat.png"
+
+
 
 enum TDisplayView {dvNotSetYet, dvDriver, dvBatteryBank, dvTemp, dvAlarmConfig};
 
@@ -297,22 +295,6 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
 };
 
-
-/*class BatteryBankView : public QGraphicsItem
-{
-public:
-    BatteryBankView();
-    ~BatteryBankView();
-
-    QRectF boundingRect() const;
-    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
-
-    void
-
-private:
-
-};*/
-
 class TemperatureView : public QGraphicsItem
 {
 public:
@@ -448,6 +430,7 @@ private slots:
 
     void                SlotFlashTimerTimeout();
     void                SlotLoggingTimerTimeout();
+    void                SlotDataCaptureTimerTimeout();
     void                SlotSpinnerDownTimerTimeout();
     void                SlotSpinnerDownActiveTimerTimeout();
 
@@ -465,8 +448,13 @@ public slots:
     // IO
     void                SlotIOBat12VState(bool state);
 
+    // Gps
+    void                SlotGpsNewData(QStringList newData);
+
 signals:
-    // GPS
+    // Gps
+    void                SignalGpsInitialise();
+
 
     // power
     void                SignalPowerConfigure();
@@ -485,19 +473,22 @@ signals:
 
     // logging
     void                SignalLoggingNewRecord(QStringList record);
+    void                SignalLoggingProfileChanged(bool charging);
 
 private:
 
     TempDevice          tempDevice[16];
     IODevice            ioDevice;
     PowerDevice         powerDevice;
-
+    GpsData             gpsData;
 
     BusAgent            Buses[4];
     PowerAgent          Power;
     IOAgent             InputOutput;
-    Logger              TempLogger;
+    LoggerAgent         Logger;
+    GpsAgent            Gps;
 
+    QThread             GpsThread;
     QThread             PowerThread;
     QThread             IOThread;
     QThread             BusThread[4];
@@ -506,6 +497,7 @@ private:
 
     QTimer              FlashTimer;
     QTimer              LoggingTimer;
+    QTimer              DataCaptureTimer;
 
 
 
@@ -521,20 +513,19 @@ private:
     TSpinnerPress SpinnerPress;
 
 
+    bool MuteActive;
+    bool WifiActive;
+    bool ChargeProfileActive;
+    QStringList loggerData;
 
     void GetConfiguration();
     void DevicesUpdateAlarmStatus();
-
-    void TempLoggerSetup();
+    void LoggerSetup();
     void PowerAgentSetup();
     void IOAgentSetup();
     void TemperatureSetup();
-
+    void GpsSetup();
     void UpdateMutedAlarmMap();
-
-    bool MuteActive;
-    bool WifiActive;
-
     int  DisplaySettingsDeviceIndex;
     void LoadDriverDisplay();
     void LoadBatteryBankDisplay();

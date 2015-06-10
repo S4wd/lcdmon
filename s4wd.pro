@@ -18,7 +18,8 @@ SOURCES += main.cpp\
         graphicsitems.cpp \
 	logger.cpp \
     ioagent.cpp \
-    poweragent.cpp
+    poweragent.cpp \
+    gpsagent.cpp
 
 HEADERS  += widget.h \
         busagent.h \
@@ -27,7 +28,8 @@ HEADERS  += widget.h \
         logger.h \ 
 	s4wd.h \
     ioagent.h \
-    poweragent.h
+    poweragent.h \
+    gpsagent.h
 
 FORMS    += widget.ui
 

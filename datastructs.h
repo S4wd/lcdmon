@@ -53,5 +53,14 @@ struct IODevice {
     bool Bat12VMuted;
 };
 
+struct GpsData {
+    QString datetime;
+    QString longitude;
+    QString latitude;
+    QString speed;
+    QString altitude;
+    QString heading;
+};
+
 #endif // DATASTRUCTS_H
 

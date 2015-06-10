@@ -49,27 +49,20 @@ public slots:
 private slots:
     void SlotADSFinished(int exitstatus);
     void ADSTimerTimeout();
-    void LogTimerTimeout();
 
 signals:
 
     void SignalNewReading( QStringList newreadings );
 
 private:
-    bool loggingToFile;
+
     DataRecord newdata;
-    qint16 samplesCaptured;
-    qint16 filePrefix;
+
     QProcess * ADSProcess;
     QTimer * ADSTimer;
-    QTimer * LogTimer;
-    QVector<DataRecord> myData;
+    DataRecord myData;
 
     void ADSRead();
-    void getMeta();
-    void setMeta();
-    void LogToFile();
-    void ProcessNewData();
 };
 
 #endif // POWERAGENT_H
