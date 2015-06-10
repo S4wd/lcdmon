@@ -17,6 +17,11 @@
 #include <vector>
 
 #include "datastructs.h"
+#include "busagent.h"
+#include "ioagent.h"
+#include "poweragent.h"
+#include "logger.h"
+
 
 #define DEGREE                          QChar(0260)
 #define SPINNER_HOLD_PRESS_TRIGGER      200
@@ -30,6 +35,9 @@
 #define S4WD_CONFIGURATION_BAK_FILE     "/home/s4wd/config/s4wdbak.ini"
 #define S4WD_DEBUG_FILE                 "/home/s4wd/config/%1s4wd.dbg"
 #endif
+
+#define HIGHER_TEMP(a,b,c)     a = (b > c) ? b:c
+
 
 
 
@@ -45,9 +53,6 @@
 #define PNG_IMAGE_SHUTDOWN              ":/icons/shutdown.png"
 #define PNG_IMAGE_WIFI_ON               ":/icons/wifion.png"
 #define PNG_IMAGE_WIFI_OFF              ":/icons/wifioff.png"
-#define PNG_IMAGE_VOLT_GAUGE            ":/icons/voltgauge.png"
-#define PNG_IMAGE_AMP_GAUGE             ":/icons/ampgauge.png"
-#define PNG_IMAGE_NEEDLE                ":/icons/needle.png"
 #define PNG_IMAGE_BAT                   ":/icons/bat.png"
 
 enum TDisplayView {dvNotSetYet, dvDriver, dvBatteryBank, dvTemp, dvAlarmConfig};
@@ -77,6 +82,11 @@ enum TTempDisplay { tdBatA=0,
 enum TSpinnerUnit {suTemperature, suCurrent, suVoltage};
 enum TSpinnerPress {spNone, spA1up, spA1down, spA2up, spA2down};
 enum TSpinnerType {stA1, stA2};
+
+
+
+
+const QStringList busAddress = QStringList() << "/dev/ttyS2" << "/dev/ttyS3" << "/dev/ttyS4" << "/dev/ttyS5";
 
 
 class BatteryDisplayItem : public QGraphicsItem
@@ -380,7 +390,6 @@ public:
     CustomScene( QObject *parent = 0);
     ~CustomScene();
 
-    void Initialise(TempDevice * devdata, IODevice *iodata, PowerDevice *powerdata);
     void DisplaySetValue(int display);
     void DisplayStartFlashing(TAlarmState aEvent, int display);
     void DisplayStopFlashing(int display);
@@ -435,10 +444,70 @@ protected:
     TemperatureView HighDefTempView;
     ShutdownScreen ShutdownView;
 
+private slots:
+
+    void                SlotFlashTimerTimeout();
+    void                SlotLoggingTimerTimeout();
+    void                SlotSpinnerDownTimerTimeout();
+    void                SlotSpinnerDownActiveTimerTimeout();
+
+public slots:
+    // temperatures
+    void                SlotBusInitialised(int threadno);
+    void                SlotBus1NewTemps(QStringList newtemps);
+    void                SlotBus2NewTemps(QStringList newtemps);
+    void                SlotBus3NewTemps(QStringList newtemps);
+    void                SlotBus4NewTemps(QStringList newtemps);
+
+    // power
+    void                SlotPowerNewReadings(QStringList readings);
+
+    // IO
+    void                SlotIOBat12VState(bool state);
+
+signals:
+    // GPS
+
+    // power
+    void                SignalPowerConfigure();
+
+    // IO
+    void                SignalIOConfigure();
+    void                SignalIOBat12VState();
+    void                SignalIOSirenOn(int alarmEvent);
+    void                SignalIOSirenOff(int alarmEvent);
+
+    // temperature
+    void                SignalBus1Configure(bool);
+    void                SignalBus2Configure(bool);
+    void                SignalBus3Configure(bool);
+    void                SignalBus4Configure(bool);
+
+    // logging
+    void                SignalLoggingNewRecord(QStringList record);
+
 private:
-    TempDevice * DevicesData;
-    IODevice * IOData;
-    PowerDevice * PowerData;
+
+    TempDevice          tempDevice[16];
+    IODevice            ioDevice;
+    PowerDevice         powerDevice;
+
+
+    BusAgent            Buses[4];
+    PowerAgent          Power;
+    IOAgent             InputOutput;
+    Logger              TempLogger;
+
+    QThread             PowerThread;
+    QThread             IOThread;
+    QThread             BusThread[4];
+    QThread             LoggerThread;
+
+
+    QTimer              FlashTimer;
+    QTimer              LoggingTimer;
+
+
 
     QGraphicsItem * ReturnView;
     QGraphicsItem * CurrentView;
@@ -450,6 +519,16 @@ private:
 
     TSpinnerUnit SpinUnits;
     TSpinnerPress SpinnerPress;
+
+
+
+    void GetConfiguration();
+    void DevicesUpdateAlarmStatus();
+
+    void TempLoggerSetup();
+    void PowerAgentSetup();
+    void IOAgentSetup();
+    void TemperatureSetup();
 
     void UpdateMutedAlarmMap();
 
@@ -474,9 +553,8 @@ private:
     void WifiTurnOn();
     void WifiTurnOff();
 
-private slots:
-    void SlotSpinnerDownTimerTimeout();
-    void SlotSpinnerDownActiveTimerTimeout();
+
+
 };
 
 

@@ -233,6 +233,19 @@ CustomScene::CustomScene(QObject *parent)
 {
     setParent(parent);
 
+
+    GetConfiguration();
+
+
+    QObject::connect(&FlashTimer, SIGNAL(timeout()), this, SLOT(SlotFlashTimerTimeout()));
+
+    TempLoggerSetup();
+    IOAgentSetup();
+    PowerAgentSetup();
+    TemperatureSetup();
+    SignalBus1Configure(true);
+
+
     MuteActive = false;
     WifiActive = false;
 
@@ -251,10 +264,42 @@ CustomScene::CustomScene(QObject *parent)
 
     QObject::connect(&SpinnerHoldDownTimer, SIGNAL(timeout()), this, SLOT(SlotSpinnerDownTimerTimeout()));
     QObject::connect(&SpinnerHoldDownActiveTimer, SIGNAL(timeout()), this, SLOT(SlotSpinnerDownActiveTimerTimeout()));
+
+
+    LoadDriverDisplay();
+    LoadBatteryBankDisplay();
+    LoadTemperatureDisplay();
+    LoadAlarmConfigDisplay();
+    LoadShutDownView();
+
+    // default display (dummy setting)
+    CurrentView = &DrivingView;
+    ChangeView(&DrivingView);
+
+
 }
 
 CustomScene::~CustomScene()
 {
+    qDebug() << "Destroying scene";
+
+    // terminate any running threads
+
+    for (int i=0; i<4; i++)
+    {
+        if ( BusThread[i].isRunning() )
+             BusThread[i].terminate();
+    }
+
+    if ( IOThread.isRunning() )
+         IOThread.terminate();
+
+    if ( LoggerThread.isRunning() )
+        LoggerThread.terminate();
+
+    if ( PowerThread.isRunning() )
+        PowerThread.terminate();
+
     delete DvMuteButton;
     delete BvMuteButton;
     delete TickButton;
@@ -269,23 +314,7 @@ CustomScene::~CustomScene()
     delete WifiApButton;
 }
 
-void CustomScene::Initialise(TempDevice *devdata, IODevice *iodata, PowerDevice *powerdata)
-{
-    // devices data
-    DevicesData = devdata;
-    IOData = iodata;
-    PowerData = powerdata;
 
-    LoadDriverDisplay();
-    LoadBatteryBankDisplay();
-    LoadTemperatureDisplay();
-    LoadAlarmConfigDisplay();
-    LoadShutDownView();
-
-    // default display (dummy setting)
-    CurrentView = &DrivingView;
-    ChangeView(&DrivingView);
-}
 
 void CustomScene::SetView(TDisplayView view)
 {
@@ -295,15 +324,8 @@ void CustomScene::SetView(TDisplayView view)
         ChangeView(&BatteryBankView);
 }
 
-bool CustomScene::MuteIsActive()
-{
-    return MuteActive;
-}
 
-void CustomScene::SetBat12VState(bool state)
-{
-    Bat12V.setState(state);
-}
+
 
 
 
@@ -326,40 +348,40 @@ TDisplayView CustomScene::GetView()
 void CustomScene::DisplaySetValue(int display)
 {
     if (display <= tdBatL)
-        BatT[display].setValue(DevicesData[display].HighTemp);
+        BatT[display].setValue(tempDevice[display].HighTemp);
 
     else if (display == tdMotor)
-        Motor.setValue(DevicesData[tdMotor].HighTemp);
+        Motor.setValue(tempDevice[tdMotor].HighTemp);
 
     else if (display == tdController)
-        PwmC.setValue(DevicesData[tdController].HighTemp);
+        PwmC.setValue(tempDevice[tdController].HighTemp);
 
     else if (display == tdFrontAmbient)
-        FAmb.setValue(DevicesData[tdFrontAmbient].HighTemp);
+        FAmb.setValue(tempDevice[tdFrontAmbient].HighTemp);
 
     else if (display == tdBackAmbient)
-        BAmb.setValue(DevicesData[tdBackAmbient].HighTemp);
+        BAmb.setValue(tempDevice[tdBackAmbient].HighTemp);
 
 
 
     else if (display == tdBankVoltage)
     {
-        VoltGauge.setValue(PowerData->Voltage.reading);
-        vNeedle.setValue(PowerData->Voltage.reading);
+        VoltGauge.setValue(powerDevice.Voltage.reading);
+        vNeedle.setValue(powerDevice.Voltage.reading);
     }
 
     else if (display == tdBankCurrent)
     {
-        AmpGauge.setValue(PowerData->Current.reading);
-        aNeedle.setValue(PowerData->Current.reading);
+        AmpGauge.setValue(powerDevice.Current.reading);
+        aNeedle.setValue(powerDevice.Current.reading);
     }
 
     if ( CurrentView == &HighDefTempView && display == DisplaySettingsDeviceIndex )
     {
-        HighDefTempView.SetValues(DevicesData[display].SensorP.T,
-                                  DevicesData[display].SensorN.T,
-                                  DevicesData[display].Alarm1,
-                                  DevicesData[display].Alarm2);
+        HighDefTempView.SetValues(tempDevice[display].SensorP.T,
+                                  tempDevice[display].SensorN.T,
+                                  tempDevice[display].Alarm1,
+                                  tempDevice[display].Alarm2);
         HighDefTempView.UpdateView();
     }
 }
@@ -454,17 +476,17 @@ void CustomScene::LoadDriverDisplay()
 
     // motor
     Motor.setParentItem(&DrivingView);
-    Motor.setTitle(DevicesData[tdMotor].Alias);
+    Motor.setTitle(tempDevice[tdMotor].Alias);
     Motor.setPos(620,10);
 
     // controller
     PwmC.setParentItem(&DrivingView);
-    PwmC.setTitle(DevicesData[tdController].Alias);
+    PwmC.setTitle(tempDevice[tdController].Alias);
     PwmC.setPos(620,100);
 
     // ambient
     FAmb.setParentItem(&DrivingView);
-    FAmb.setTitle(DevicesData[tdFrontAmbient].Alias);
+    FAmb.setTitle(tempDevice[tdFrontAmbient].Alias);
     FAmb.setPos(620,190);
 
     // 12V battery
@@ -500,7 +522,7 @@ void CustomScene::LoadBatteryBankDisplay()
     for( int i=tdBatA; i<=tdBatL; i++ )
     {
         BatT[i].setParentItem(&BatteryBankView);
-        BatT[i].setTitle(DevicesData[i].Alias);
+        BatT[i].setTitle(tempDevice[i].Alias);
     }
 
 
@@ -521,7 +543,7 @@ void CustomScene::LoadBatteryBankDisplay()
     BatT[tdBatL].setPos(420,340);
 
     BAmb.setParentItem(&BatteryBankView);
-    BAmb.setTitle(DevicesData[tdBackAmbient].Alias);
+    BAmb.setTitle(tempDevice[tdBackAmbient].Alias);
     BAmb.setPos(600,50);
 
     // return button
@@ -595,23 +617,23 @@ void CustomScene::VCAlarmSettingsChanged()
 {
     if (DisplaySettingsDeviceIndex == tdBankVoltage)
     {
-        PowerData->Voltage.alarm1 = A1Spinner.getValue();
-        PowerData->Voltage.alarm2 = A2Spinner.getValue();
-        SetConfiguration(DisplaySettingsDeviceIndex, PowerData->Voltage.alarm1, PowerData->Voltage.alarm2 );
+        powerDevice.Voltage.alarm1 = A1Spinner.getValue();
+        powerDevice.Voltage.alarm2 = A2Spinner.getValue();
+        SetConfiguration(DisplaySettingsDeviceIndex, powerDevice.Voltage.alarm1, powerDevice.Voltage.alarm2 );
     }
     else if (DisplaySettingsDeviceIndex == tdBankCurrent)
     {
-        PowerData->Current.alarm1 = A1Spinner.getValue();
-        PowerData->Current.alarm2 = A2Spinner.getValue();
-        SetConfiguration(DisplaySettingsDeviceIndex, PowerData->Current.alarm1 , PowerData->Current.alarm2 );
+        powerDevice.Current.alarm1 = A1Spinner.getValue();
+        powerDevice.Current.alarm2 = A2Spinner.getValue();
+        SetConfiguration(DisplaySettingsDeviceIndex, powerDevice.Current.alarm1 , powerDevice.Current.alarm2 );
     }
 }
 
 void CustomScene::TAlarmSettingsChanged()
 {
-    DevicesData[DisplaySettingsDeviceIndex].Alarm1 = A1Spinner.getValue();
-    DevicesData[DisplaySettingsDeviceIndex].Alarm2 = A2Spinner.getValue();
-    SetConfiguration(DisplaySettingsDeviceIndex, DevicesData[DisplaySettingsDeviceIndex].Alarm1, DevicesData[DisplaySettingsDeviceIndex].Alarm2);
+    tempDevice[DisplaySettingsDeviceIndex].Alarm1 = A1Spinner.getValue();
+    tempDevice[DisplaySettingsDeviceIndex].Alarm2 = A2Spinner.getValue();
+    SetConfiguration(DisplaySettingsDeviceIndex, tempDevice[DisplaySettingsDeviceIndex].Alarm1, tempDevice[DisplaySettingsDeviceIndex].Alarm2);
 }
 
 void CustomScene::SetConfiguration(int device, float A1, float A2)
@@ -623,8 +645,8 @@ void CustomScene::SetConfiguration(int device, float A1, float A2)
         settings.beginGroup(QString("device%1").arg(device+1));
         settings.setValue(QString("A1"), QVariant(A1).toString());
         settings.setValue(QString("A2"), QVariant(A2).toString());
-        qDebug() << QString("Device %1: Set Alarm1: %2").arg(device+1).arg( DevicesData[device].Alarm1);
-        qDebug() << QString("Device %1: Set Alarm2: %2").arg(device+1).arg( DevicesData[device].Alarm2);
+        qDebug() << QString("Device %1: Set Alarm1: %2").arg(device+1).arg( tempDevice[device].Alarm1);
+        qDebug() << QString("Device %1: Set Alarm2: %2").arg(device+1).arg( tempDevice[device].Alarm2);
         settings.endGroup();
     }
 
@@ -634,8 +656,8 @@ void CustomScene::SetConfiguration(int device, float A1, float A2)
         settings.beginGroup(QString("bankvoltage"));
         settings.setValue(QString("A1"), QVariant(A1).toString());
         settings.setValue(QString("A2"), QVariant(A2).toString());
-        qDebug() << QString("Bank battery V: Set Alarm1: %1").arg( PowerData->Voltage.alarm1 );
-        qDebug() << QString("Bank battery V: Set Alarm2: %1").arg( PowerData->Voltage.alarm2 );
+        qDebug() << QString("Bank battery V: Set Alarm1: %1").arg( powerDevice.Voltage.alarm1 );
+        qDebug() << QString("Bank battery V: Set Alarm2: %1").arg( powerDevice.Voltage.alarm2 );
         settings.endGroup();
     }
     // bank current
@@ -644,8 +666,8 @@ void CustomScene::SetConfiguration(int device, float A1, float A2)
         settings.beginGroup(QString("bankcurrent"));
         settings.setValue(QString("A1"), QVariant(A1).toString());
         settings.setValue(QString("A2"), QVariant(A2).toString());
-        qDebug() << QString("Bank battery C: Set Alarm1: %1").arg( PowerData->Current.alarm1 );
-        qDebug() << QString("Bank battery C: Set Alarm2: %1").arg( PowerData->Current.alarm2 );
+        qDebug() << QString("Bank battery C: Set Alarm1: %1").arg( powerDevice.Current.alarm1 );
+        qDebug() << QString("Bank battery C: Set Alarm2: %1").arg( powerDevice.Current.alarm2 );
         settings.endGroup();
     }
 }
@@ -691,14 +713,14 @@ void CustomScene::MutePress()
         MuteActive = false;
         for (int i=0; i<=tdFrontAmbient; i++)
         {
-            DevicesData[i].a1muted = false;
-            DevicesData[i].a2muted = false;
+            tempDevice[i].a1muted = false;
+            tempDevice[i].a2muted = false;
         }
 
-        PowerData->Current.a1muted = false;
-        PowerData->Current.a2muted = false;
-        PowerData->Voltage.a1muted = false;
-        PowerData->Voltage.a2muted = false;
+        powerDevice.Current.a1muted = false;
+        powerDevice.Current.a2muted = false;
+        powerDevice.Voltage.a1muted = false;
+        powerDevice.Voltage.a2muted = false;
 
     }
     else
@@ -947,15 +969,15 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
             ReturnView = &BatteryBankView;
             DisplaySettingsDeviceIndex = i;
             titles.clear();
-            titles << DevicesData[i].Alias;
-            titles << DevicesData[i].SensorP.Alias;
-            titles << DevicesData[i].SensorN.Alias;
+            titles << tempDevice[i].Alias;
+            titles << tempDevice[i].SensorP.Alias;
+            titles << tempDevice[i].SensorN.Alias;
 
             HighDefTempView.SetTitles(titles);
-            HighDefTempView.SetValues( DevicesData[i].SensorP.T,
-                                       DevicesData[i].SensorN.T,
-                                       DevicesData[i].Alarm1,
-                                       DevicesData[i].Alarm2);
+            HighDefTempView.SetValues( tempDevice[i].SensorP.T,
+                                       tempDevice[i].SensorN.T,
+                                       tempDevice[i].Alarm1,
+                                       tempDevice[i].Alarm2);
 
             ChangeView(&HighDefTempView);
             return;
@@ -968,15 +990,15 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
         ReturnView = &DrivingView;
         DisplaySettingsDeviceIndex = tdMotor;
         titles.clear();
-        titles << DevicesData[tdMotor].Alias;
-        titles << DevicesData[tdMotor].SensorP.Alias;
-        titles << DevicesData[tdMotor].SensorN.Alias;
+        titles << tempDevice[tdMotor].Alias;
+        titles << tempDevice[tdMotor].SensorP.Alias;
+        titles << tempDevice[tdMotor].SensorN.Alias;
 
         HighDefTempView.SetTitles(titles);
-        HighDefTempView.SetValues( DevicesData[tdMotor].SensorP.T,
-                                   DevicesData[tdMotor].SensorN.T,
-                                   DevicesData[tdMotor].Alarm1,
-                                   DevicesData[tdMotor].Alarm2);
+        HighDefTempView.SetValues( tempDevice[tdMotor].SensorP.T,
+                                   tempDevice[tdMotor].SensorN.T,
+                                   tempDevice[tdMotor].Alarm1,
+                                   tempDevice[tdMotor].Alarm2);
 
         ChangeView(&HighDefTempView);
         return;
@@ -989,15 +1011,15 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
         ReturnView = &DrivingView;
         DisplaySettingsDeviceIndex = tdController;
         titles.clear();
-        titles << DevicesData[tdController].Alias;
-        titles << DevicesData[tdController].SensorP.Alias;
-        titles << DevicesData[tdController].SensorN.Alias;
+        titles << tempDevice[tdController].Alias;
+        titles << tempDevice[tdController].SensorP.Alias;
+        titles << tempDevice[tdController].SensorN.Alias;
 
         HighDefTempView.SetTitles(titles);
-        HighDefTempView.SetValues( DevicesData[tdController].SensorP.T,
-                                   DevicesData[tdController].SensorN.T,
-                                   DevicesData[tdController].Alarm1,
-                                   DevicesData[tdController].Alarm2);
+        HighDefTempView.SetValues( tempDevice[tdController].SensorP.T,
+                                   tempDevice[tdController].SensorN.T,
+                                   tempDevice[tdController].Alarm1,
+                                   tempDevice[tdController].Alarm2);
 
         ChangeView(&HighDefTempView);
         return;
@@ -1010,15 +1032,15 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
         ReturnView = &DrivingView;
         DisplaySettingsDeviceIndex = tdFrontAmbient;
         titles.clear();
-        titles << DevicesData[tdFrontAmbient].Alias;
-        titles << DevicesData[tdFrontAmbient].SensorP.Alias;
-        titles << DevicesData[tdFrontAmbient].SensorN.Alias;
+        titles << tempDevice[tdFrontAmbient].Alias;
+        titles << tempDevice[tdFrontAmbient].SensorP.Alias;
+        titles << tempDevice[tdFrontAmbient].SensorN.Alias;
 
         HighDefTempView.SetTitles(titles);
-        HighDefTempView.SetValues( DevicesData[tdFrontAmbient].SensorP.T,
-                                   DevicesData[tdFrontAmbient].SensorN.T,
-                                   DevicesData[tdFrontAmbient].Alarm1,
-                                   DevicesData[tdFrontAmbient].Alarm2);
+        HighDefTempView.SetValues( tempDevice[tdFrontAmbient].SensorP.T,
+                                   tempDevice[tdFrontAmbient].SensorN.T,
+                                   tempDevice[tdFrontAmbient].Alarm1,
+                                   tempDevice[tdFrontAmbient].Alarm2);
 
         ChangeView(&HighDefTempView);
         return;
@@ -1031,15 +1053,15 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
         ReturnView = &BatteryBankView;
         DisplaySettingsDeviceIndex = tdBackAmbient;
         titles.clear();
-        titles << DevicesData[tdBackAmbient].Alias;
-        titles << DevicesData[tdBackAmbient].SensorP.Alias;
-        titles << DevicesData[tdBackAmbient].SensorN.Alias;
+        titles << tempDevice[tdBackAmbient].Alias;
+        titles << tempDevice[tdBackAmbient].SensorP.Alias;
+        titles << tempDevice[tdBackAmbient].SensorN.Alias;
 
         HighDefTempView.SetTitles(titles);
-        HighDefTempView.SetValues( DevicesData[tdBackAmbient].SensorP.T,
-                                   DevicesData[tdBackAmbient].SensorN.T,
-                                   DevicesData[tdBackAmbient].Alarm1,
-                                   DevicesData[tdBackAmbient].Alarm2);
+        HighDefTempView.SetValues( tempDevice[tdBackAmbient].SensorP.T,
+                                   tempDevice[tdBackAmbient].SensorN.T,
+                                   tempDevice[tdBackAmbient].Alarm1,
+                                   tempDevice[tdBackAmbient].Alarm2);
 
         ChangeView(&HighDefTempView);
         return;
@@ -1055,15 +1077,15 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
         {
             TAlarmSettingsChanged();
             titles.clear();
-            titles << DevicesData[DisplaySettingsDeviceIndex].Alias;
-            titles << DevicesData[DisplaySettingsDeviceIndex].SensorP.Alias;
-            titles << DevicesData[DisplaySettingsDeviceIndex].SensorN.Alias;
+            titles << tempDevice[DisplaySettingsDeviceIndex].Alias;
+            titles << tempDevice[DisplaySettingsDeviceIndex].SensorP.Alias;
+            titles << tempDevice[DisplaySettingsDeviceIndex].SensorN.Alias;
 
             HighDefTempView.SetTitles(titles);
-            HighDefTempView.SetValues( DevicesData[DisplaySettingsDeviceIndex].SensorP.T,
-                                       DevicesData[DisplaySettingsDeviceIndex].SensorN.T,
-                                       DevicesData[DisplaySettingsDeviceIndex].Alarm1,
-                                       DevicesData[DisplaySettingsDeviceIndex].Alarm2);
+            HighDefTempView.SetValues( tempDevice[DisplaySettingsDeviceIndex].SensorP.T,
+                                       tempDevice[DisplaySettingsDeviceIndex].SensorN.T,
+                                       tempDevice[DisplaySettingsDeviceIndex].Alarm1,
+                                       tempDevice[DisplaySettingsDeviceIndex].Alarm2);
             ChangeView(&HighDefTempView);
         }
         else
@@ -1145,12 +1167,12 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
     {
         qDebug() << "temp view config button release";
         ConfigButton->buttonStateChanged(false);
-        AlarmConfigView.SetTitle( DevicesData[DisplaySettingsDeviceIndex].Alias );
+        AlarmConfigView.SetTitle( tempDevice[DisplaySettingsDeviceIndex].Alias );
 
-        A1Spinner.setValue(DevicesData[DisplaySettingsDeviceIndex].Alarm1);
+        A1Spinner.setValue(tempDevice[DisplaySettingsDeviceIndex].Alarm1);
         A1Spinner.setParameters(suTemperature,0.5,-55.0,+125.0,stA1);
 
-        A2Spinner.setValue(DevicesData[DisplaySettingsDeviceIndex].Alarm2);
+        A2Spinner.setValue(tempDevice[DisplaySettingsDeviceIndex].Alarm2);
         A2Spinner.setParameters(suTemperature,0.5,-55.0,+125.0,stA2);
 
         SpinUnits = suTemperature;
@@ -1217,9 +1239,9 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
     if ( VoltGauge.contains( VoltGauge.mapFromScene( mousePoint )))
     {
         AlarmConfigView.SetTitle(QString("Bank Voltage"));
-        A1Spinner.setValue(PowerData->Voltage.alarm1);
+        A1Spinner.setValue(powerDevice.Voltage.alarm1);
         A1Spinner.setParameters(suVoltage, (float)0.1, (float)40, (float)52, stA1);
-        A2Spinner.setValue(PowerData->Voltage.alarm2);
+        A2Spinner.setValue(powerDevice.Voltage.alarm2);
         A2Spinner.setParameters(suVoltage, (float)0.1, (float)40, (float)52, stA2);
         SpinUnits = suVoltage;
         DisplaySettingsDeviceIndex = tdBankVoltage;
@@ -1232,9 +1254,9 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
     if ( AmpGauge.contains( AmpGauge.mapFromScene( mousePoint )))
     {
         AlarmConfigView.SetTitle(QString("Bank Current"));
-        A1Spinner.setValue(PowerData->Current.alarm1);
+        A1Spinner.setValue(powerDevice.Current.alarm1);
         A1Spinner.setParameters(suCurrent,1, 0, 399, stA1);
-        A2Spinner.setValue(PowerData->Current.alarm2);
+        A2Spinner.setValue(powerDevice.Current.alarm2);
         SpinUnits = suCurrent;
         A2Spinner.setParameters(suCurrent,1, 0, 399, stA2);
         DisplaySettingsDeviceIndex = tdBankCurrent;
@@ -1252,58 +1274,669 @@ void CustomScene::UpdateMutedAlarmMap()
 {
     for (int i=0; i<=tdFrontAmbient; i++)
     {
-        if (DevicesData[i].AlarmStatus == asAlarm1)
+        if (tempDevice[i].AlarmStatus == asAlarm1)
         {
-            DevicesData[i].a1muted = true;
-            DevicesData[i].a2muted = false;
+            tempDevice[i].a1muted = true;
+            tempDevice[i].a2muted = false;
         }
-        else if (DevicesData[i].AlarmStatus == asAlarm2)
+        else if (tempDevice[i].AlarmStatus == asAlarm2)
         {
-            DevicesData[i].a1muted = false;
-            DevicesData[i].a2muted = true;
+            tempDevice[i].a1muted = false;
+            tempDevice[i].a2muted = true;
         }
         else
         {
-            DevicesData[i].a1muted = false;
-            DevicesData[i].a2muted = false;
+            tempDevice[i].a1muted = false;
+            tempDevice[i].a2muted = false;
         }
     }
 
-    if (PowerData->Current.status == asAlarm1)
+    if (powerDevice.Current.status == asAlarm1)
     {
 
-        PowerData->Current.a1muted = true;
-        PowerData->Current.a2muted = false;
+        powerDevice.Current.a1muted = true;
+        powerDevice.Current.a2muted = false;
     }
-    else if (PowerData->Current.status == asAlarm2)
+    else if (powerDevice.Current.status == asAlarm2)
     {
-        PowerData->Current.a1muted = false;
-        PowerData->Current.a2muted = true;
+        powerDevice.Current.a1muted = false;
+        powerDevice.Current.a2muted = true;
     }
     else
     {
-        PowerData->Current.a1muted = false;
-        PowerData->Current.a2muted = false;
+        powerDevice.Current.a1muted = false;
+        powerDevice.Current.a2muted = false;
     }
 
-    if (PowerData->Voltage.status == asAlarm1)
+    if (powerDevice.Voltage.status == asAlarm1)
     {
 
-        PowerData->Voltage.a1muted = true;
-        PowerData->Voltage.a2muted = false;
+        powerDevice.Voltage.a1muted = true;
+        powerDevice.Voltage.a2muted = false;
     }
-    else if (PowerData->Voltage.status == asAlarm2)
+    else if (powerDevice.Voltage.status == asAlarm2)
     {
-        PowerData->Voltage.a1muted = false;
-        PowerData->Voltage.a2muted = true;
+        powerDevice.Voltage.a1muted = false;
+        powerDevice.Voltage.a2muted = true;
     }
     else
     {
-        PowerData->Voltage.a1muted = false;
-        PowerData->Voltage.a2muted = false;
+        powerDevice.Voltage.a1muted = false;
+        powerDevice.Voltage.a2muted = false;
     }
 
 }
+
+
+void CustomScene::SlotPowerNewReadings(QStringList readings)
+{
+    if (readings.count() != 2)
+        return;
+
+    //qDebug() << readings;
+
+
+    float current = readings[0].toFloat();
+    if (current >= 0 && current < 401)
+        powerDevice.Current.reading = current;
+
+
+    float voltage = readings[1].toFloat();
+    if (voltage >= 40 && voltage < 52.1)
+        powerDevice.Voltage.reading = voltage;
+
+    DevicesUpdateAlarmStatus();
+}
+
+void CustomScene::SlotIOBat12VState(bool state)
+{
+    ioDevice.Bat12VGood = state;
+    Bat12V.setState(state);
+}
+
+
+
+/* TIMERS */
+
+void CustomScene::SlotFlashTimerTimeout()
+{
+
+
+    if (MuteActive)
+    {
+        SignalIOSirenOff(SIREN_TYPE_A1_PULSE);
+        SignalIOSirenOff(SIREN_TYPE_A2_CONSTANT);
+    }
+
+
+    for (int i=tdBatA; i<=tdFrontAmbient; i++)
+    {
+        if ( tempDevice[i].AlarmStatus != asNone )
+            DisplayFlashNow(i);
+    }
+
+    if ( powerDevice.Voltage.status != asNone )
+        DisplayFlashNow(tdBankVoltage);
+
+    if ( powerDevice.Current.status != asNone )
+        DisplayFlashNow(tdBankCurrent);
+}
+
+
+
+
+
+void CustomScene::SlotLoggingTimerTimeout()
+{
+    QString s;
+    QStringList Record;
+
+    // temperatures
+    for (int i=tdBatA; i<=tdFrontAmbient; i++)
+        Record << QString("%1").arg( s.number( tempDevice[i].HighTemp, 'f', 1) );
+
+    emit SignalLoggingNewRecord(Record);
+}
+
+void CustomScene::SlotBusInitialised(int threadno)
+{
+    switch(threadno)
+    {
+    case 1:
+        qDebug() << QString("Reply: 1. Configure 2.");
+        SignalBus2Configure(true);
+        break;
+    case 2:
+        qDebug() << QString("Reply: 2. Configure 3.");
+        SignalBus3Configure(true);
+        break;
+    case 3:
+        qDebug() << QString("Reply: 3. Configure 4.");
+        SignalBus4Configure(true);
+        break;
+    default:
+        qDebug() << QString("Unknown threadno: %1").arg(threadno);
+    }
+}
+
+
+
+/* CONFIGURATION */
+void CustomScene::GetConfiguration()
+{
+    QSettings settings(QString(S4WD_CONFIGURATION_FILE), QSettings::IniFormat);
+
+    for (int i=0; i<=tdFrontAmbient; i++)
+    {
+        settings.beginGroup(QString("device%1").arg(i+1));
+        tempDevice[i].Alias = settings.value(QString("Alias")).toString();
+        tempDevice[i].SensorP.Serial = settings.value(QString("SerialP")).toString();
+        tempDevice[i].SensorN.Serial = settings.value(QString("SerialN")).toString();
+        tempDevice[i].SensorP.Alias = settings.value(QString("AliasP")).toString();
+        tempDevice[i].SensorN.Alias = settings.value(QString("AliasN")).toString();
+        tempDevice[i].Alarm1 = settings.value(QString("A1")).toFloat();
+        tempDevice[i].Alarm2 = settings.value(QString("A2")).toFloat();
+        qDebug() << tempDevice[i].Alias;
+        qDebug() << QString("Alarm1: %1").arg(tempDevice[i].Alarm1);
+        qDebug() << QString("Alarm2: %1").arg(tempDevice[i].Alarm2);
+        settings.endGroup();
+    }
+
+    // bank volts
+    settings.beginGroup(QString("bankvoltage"));
+    powerDevice.Voltage.alarm1 = settings.value(QString("A1")).toFloat();
+    powerDevice.Voltage.alarm2 = settings.value(QString("A2")).toFloat();
+    qDebug() << QString("Alarm1: %1").arg(powerDevice.Voltage.alarm1);
+    qDebug() << QString("Alarm2: %1").arg(powerDevice.Voltage.alarm2);
+    settings.endGroup();
+
+    // bank current
+    settings.beginGroup(QString("bankcurrent"));
+    powerDevice.Current.alarm1 = settings.value(QString("A1")).toFloat();
+    powerDevice.Current.alarm2 = settings.value(QString("A2")).toFloat();
+    qDebug() << QString("Alarm1: %1").arg(powerDevice.Current.alarm1);
+    qDebug() << QString("Alarm2: %1").arg(powerDevice.Current.alarm2);
+    settings.endGroup();
+}
+
+
+
+/* NEW TEMPERATURE READINGS FROM BUS THREAD */
+void CustomScene::SlotBus1NewTemps(QStringList newtemps)
+{
+    // Order: (1) controller case (2) BF1+ (3) BF2+ (4) BF3+ (5) BF4+ (6) Motor case (7) Ambient RHS
+    tempDevice[tdController].SensorN.T = newtemps.at(0).toFloat();
+    HIGHER_TEMP(tempDevice[tdController].HighTemp, tempDevice[tdController].SensorP.T, tempDevice[tdController].SensorN.T);
+
+    tempDevice[tdBatA].SensorP.T = newtemps.at(1).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatA].HighTemp, tempDevice[tdBatA].SensorP.T, tempDevice[tdBatA].SensorN.T);
+
+    tempDevice[tdBatB].SensorP.T = newtemps.at(2).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatB].HighTemp, tempDevice[tdBatB].SensorP.T, tempDevice[tdBatB].SensorN.T);
+
+    tempDevice[tdBatC].SensorP.T = newtemps.at(3).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatC].HighTemp, tempDevice[tdBatC].SensorP.T, tempDevice[tdBatC].SensorN.T);
+
+    tempDevice[tdBatD].SensorP.T = newtemps.at(4).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatD].HighTemp, tempDevice[tdBatD].SensorP.T, tempDevice[tdBatD].SensorN.T);
+
+    tempDevice[tdMotor].SensorN.T = newtemps.at(5).toFloat();
+    HIGHER_TEMP(tempDevice[tdMotor].HighTemp, tempDevice[tdMotor].SensorP.T, tempDevice[tdMotor].SensorN.T);
+
+    tempDevice[tdFrontAmbient].SensorP.T = newtemps.at(6).toFloat();
+    HIGHER_TEMP(tempDevice[tdFrontAmbient].HighTemp, tempDevice[tdFrontAmbient].SensorP.T, tempDevice[tdFrontAmbient].SensorN.T);
+
+    // update alarm status
+    DevicesUpdateAlarmStatus();
+}
+
+void CustomScene::SlotBus2NewTemps(QStringList newtemps)
+{
+    // Order: (1) Front ambient LHS (2) Controller (3) BF2- (4) BF1- (5) BF3- (6) BF4- (7) Motor
+    tempDevice[tdFrontAmbient].SensorN.T = newtemps.at(0).toFloat();
+    HIGHER_TEMP(tempDevice[tdFrontAmbient].HighTemp, tempDevice[tdFrontAmbient].SensorP.T, tempDevice[tdFrontAmbient].SensorN.T);
+
+    tempDevice[tdController].SensorP.T = newtemps.at(1).toFloat();
+    HIGHER_TEMP(tempDevice[tdController].HighTemp, tempDevice[tdController].SensorP.T, tempDevice[tdController].SensorN.T);
+
+    tempDevice[tdBatB].SensorN.T = newtemps.at(2).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatB].HighTemp, tempDevice[tdBatB].SensorP.T, tempDevice[tdBatB].SensorN.T);
+
+    tempDevice[tdBatA].SensorN.T = newtemps.at(3).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatA].HighTemp, tempDevice[tdBatA].SensorP.T, tempDevice[tdBatA].SensorN.T);
+
+    tempDevice[tdBatC].SensorN.T = newtemps.at(4).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatC].HighTemp, tempDevice[tdBatC].SensorP.T, tempDevice[tdBatC].SensorN.T);
+
+    tempDevice[tdBatD].SensorN.T = newtemps.at(5).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatD].HighTemp, tempDevice[tdBatD].SensorP.T, tempDevice[tdBatD].SensorN.T);
+
+    tempDevice[tdMotor].SensorP.T = newtemps.at(6).toFloat();
+    HIGHER_TEMP(tempDevice[tdMotor].HighTemp, tempDevice[tdMotor].SensorP.T, tempDevice[tdMotor].SensorN.T);
+
+    // update alarm status
+    DevicesUpdateAlarmStatus();
+}
+
+void CustomScene::SlotBus3NewTemps(QStringList newtemps)
+{
+    // Order: (1) RA1+ (2) RA2+ (3) RA3+ (4) RA4+ (5) RB4+ (6) RB3+ (7) RB2+ (8) RB1+ (9) Back Ambient 1
+    tempDevice[tdBatE].SensorP.T = newtemps.at(0).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatE].HighTemp, tempDevice[tdBatE].SensorP.T, tempDevice[tdBatE].SensorN.T);
+
+    tempDevice[tdBatF].SensorP.T = newtemps.at(1).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatF].HighTemp, tempDevice[tdBatF].SensorP.T, tempDevice[tdBatF].SensorN.T);
+
+    tempDevice[tdBatG].SensorP.T = newtemps.at(2).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatG].HighTemp, tempDevice[tdBatG].SensorP.T, tempDevice[tdBatG].SensorN.T);
+
+    tempDevice[tdBatH].SensorP.T = newtemps.at(3).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatH].HighTemp, tempDevice[tdBatH].SensorP.T, tempDevice[tdBatH].SensorN.T);
+
+    tempDevice[tdBatL].SensorP.T = newtemps.at(4).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatL].HighTemp, tempDevice[tdBatL].SensorP.T, tempDevice[tdBatL].SensorN.T);
+
+    tempDevice[tdBatK].SensorP.T = newtemps.at(5).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatK].HighTemp, tempDevice[tdBatK].SensorP.T, tempDevice[tdBatK].SensorN.T);
+
+    tempDevice[tdBatJ].SensorP.T = newtemps.at(6).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatJ].HighTemp, tempDevice[tdBatJ].SensorP.T, tempDevice[tdBatJ].SensorN.T);
+
+    tempDevice[tdBatI].SensorP.T = newtemps.at(7).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatI].HighTemp, tempDevice[tdBatI].SensorP.T, tempDevice[tdBatI].SensorN.T);
+
+    tempDevice[tdBackAmbient].SensorP.T = newtemps.at(8).toFloat();
+    HIGHER_TEMP(tempDevice[tdBackAmbient].HighTemp, tempDevice[tdBackAmbient].SensorP.T, tempDevice[tdBackAmbient].SensorN.T);
+
+    // update alarm status
+    DevicesUpdateAlarmStatus();
+}
+
+void CustomScene::SlotBus4NewTemps(QStringList newtemps)
+{
+
+    //qDebug() << newtemps;
+
+    // Order: (1) RA1- (2) RA2- (3) RA3- (4) RA4- (5) RB4- (6) RB3- (7) RB2- (8) RB1- (9) Back Ambient 2
+    tempDevice[tdBatE].SensorN.T = newtemps.at(0).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatE].HighTemp, tempDevice[tdBatE].SensorP.T, tempDevice[tdBatE].SensorN.T);
+
+    tempDevice[tdBatF].SensorN.T = newtemps.at(1).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatF].HighTemp, tempDevice[tdBatF].SensorP.T, tempDevice[tdBatF].SensorN.T);
+
+    tempDevice[tdBatG].SensorN.T = newtemps.at(2).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatG].HighTemp, tempDevice[tdBatG].SensorP.T, tempDevice[tdBatG].SensorN.T);
+
+    tempDevice[tdBatH].SensorN.T = newtemps.at(3).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatH].HighTemp, tempDevice[tdBatH].SensorP.T, tempDevice[tdBatH].SensorN.T);
+
+    tempDevice[tdBatL].SensorN.T = newtemps.at(4).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatL].HighTemp, tempDevice[tdBatL].SensorP.T, tempDevice[tdBatL].SensorN.T);
+
+    tempDevice[tdBatK].SensorN.T = newtemps.at(5).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatK].HighTemp, tempDevice[tdBatK].SensorP.T, tempDevice[tdBatK].SensorN.T);
+
+    tempDevice[tdBatJ].SensorN.T = newtemps.at(6).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatJ].HighTemp, tempDevice[tdBatJ].SensorP.T, tempDevice[tdBatJ].SensorN.T);
+
+    tempDevice[tdBatI].SensorN.T = newtemps.at(7).toFloat();
+    HIGHER_TEMP(tempDevice[tdBatI].HighTemp, tempDevice[tdBatI].SensorP.T, tempDevice[tdBatI].SensorN.T);
+
+    tempDevice[tdBackAmbient].SensorN.T = newtemps.at(8).toFloat();
+    HIGHER_TEMP(tempDevice[tdBackAmbient].HighTemp, tempDevice[tdBackAmbient].SensorP.T, tempDevice[tdBackAmbient].SensorN.T);
+
+    // update alarm status
+    DevicesUpdateAlarmStatus();
+}
+
+
+void CustomScene::DevicesUpdateAlarmStatus()
+{
+    bool A1Visual = false;
+    bool A2Visual = false;
+    bool A1Audio = false;
+    bool A2Audio = false;
+
+    //qDebug() << "Update alarm status";
+    for (int i=tdBatA; i<=tdFrontAmbient; i++)
+    {
+        DisplaySetValue(i);
+
+        // alarm status
+        if ( tempDevice[i].HighTemp >= tempDevice[i].Alarm2 )
+        {
+            tempDevice[i].AlarmStatus = asAlarm2;
+            DisplayStartFlashing(asAlarm2, i);
+            A2Visual = true;
+
+
+            if (!tempDevice[i].a2muted)
+                A2Audio = true;
+        }
+
+        else if ( tempDevice[i].HighTemp >= tempDevice[i].Alarm1 )
+        {
+            tempDevice[i].AlarmStatus = asAlarm1;
+            DisplayStartFlashing(asAlarm1, i);
+            A1Visual = true;
+
+            if (!tempDevice[i].a1muted && !tempDevice[i].a2muted)
+                A1Audio = true;
+        }
+
+        else
+        {
+            DisplayStopFlashing(i);
+            tempDevice[i].AlarmStatus = asNone;
+        }
+    }
+
+    // bank voltage
+    DisplaySetValue(tdBankVoltage);
+
+    if ( powerDevice.Voltage.reading <=  powerDevice.Voltage.alarm2 )
+    {
+        powerDevice.Voltage.status = asAlarm2;
+        DisplayStartFlashing(asAlarm2, tdBankVoltage);
+
+        A2Visual = true;
+
+        if (!powerDevice.Voltage.a2muted)
+            A2Audio = true;
+    }
+
+    else if ( powerDevice.Voltage.reading <= powerDevice.Voltage.alarm1 )
+    {
+        powerDevice.Voltage.status = asAlarm1;
+        DisplayStartFlashing(asAlarm1, tdBankVoltage);
+        A1Visual = true;
+
+        if (!powerDevice.Voltage.a1muted && !powerDevice.Voltage.a2muted)
+            A1Audio = true;
+    }
+
+    else
+    {
+        DisplayStopFlashing(tdBankVoltage);
+        powerDevice.Voltage.status = asNone;
+    }
+
+    // bank current
+    DisplaySetValue(tdBankCurrent);
+    if ( powerDevice.Current.reading >=  powerDevice.Current.alarm2 )
+    {
+        powerDevice.Current.status = asAlarm2;
+        DisplayStartFlashing(asAlarm2, tdBankCurrent);
+        A2Visual = true;
+
+        if (!powerDevice.Current.a2muted)
+            A2Audio = true;
+    }
+
+    else if ( powerDevice.Current.reading >= powerDevice.Current.alarm1 )
+    {
+        powerDevice.Current.status = asAlarm1;
+        DisplayStartFlashing(asAlarm1, tdBankCurrent);
+        A1Visual = true;
+        if (!powerDevice.Current.a1muted && !powerDevice.Current.a2muted)
+            A1Audio = true;
+    }
+
+    else
+    {
+        DisplayStopFlashing(tdBankCurrent);
+        powerDevice.Current.status = asNone;
+    }
+
+
+    //MuteStatus = scene->MuteIsActive();
+    // alert
+
+    if (A2Visual || A1Visual)
+    {
+        if ( !FlashTimer.isActive() )
+            FlashTimer.start(1000);
+    }
+    else if ( FlashTimer.isActive() )
+        FlashTimer.stop();
+
+    if (A2Audio)
+    {
+        SignalIOSirenOff(SIREN_TYPE_A1_PULSE);
+        SignalIOSirenOn(SIREN_TYPE_A2_CONSTANT);
+    }
+    else if (A1Audio)
+    {
+        SignalIOSirenOff(SIREN_TYPE_A2_CONSTANT);
+        SignalIOSirenOn(SIREN_TYPE_A1_PULSE);
+    }
+    else
+    {
+        SignalIOSirenOff(SIREN_TYPE_A1_PULSE);
+        SignalIOSirenOff(SIREN_TYPE_A2_CONSTANT);
+    }
+
+}
+
+
+void CustomScene::TempLoggerSetup()
+{
+    QObject::connect(&LoggingTimer, SIGNAL(timeout()), this, SLOT(SlotLoggingTimerTimeout()));
+
+    TempLogger.moveToThread(&LoggerThread);
+    QObject::connect(this, SIGNAL(SignalLoggingNewRecord(QStringList)), &TempLogger, SLOT(SlotNewRecord(QStringList)));
+    LoggerThread.start();
+
+    LoggingTimer.start(60000);
+}
+
+void CustomScene::PowerAgentSetup()
+{
+    powerDevice.Current.reading = 0.0;
+    powerDevice.Current.status = asNone;
+    powerDevice.Current.a1muted = false;
+    powerDevice.Current.a2muted = false;
+
+    powerDevice.Voltage.reading = 0.0;
+    powerDevice.Voltage.status = asNone;
+    powerDevice.Voltage.a1muted = false;
+    powerDevice.Voltage.a2muted = false;
+
+    Power.moveToThread(&PowerThread);
+    QObject::connect(this, SIGNAL(SignalPowerConfigure()), &Power, SLOT(SlotConfigure()) );
+    QObject::connect(&Power, SIGNAL(SignalNewReading(QStringList)), this, SLOT(SlotPowerNewReadings(QStringList)));
+
+    PowerThread.start();
+    emit SignalPowerConfigure();
+
+}
+
+void CustomScene::IOAgentSetup()
+{
+    ioDevice.Bat12VMuted = false;
+    ioDevice.Bat12VGood = true;
+
+
+    InputOutput.moveToThread(&IOThread);
+    QObject::connect(this, SIGNAL(SignalIOConfigure()), &InputOutput, SLOT(SlotConfigure()));
+    QObject::connect(this, SIGNAL(SignalIOSirenOn(int)), &InputOutput, SLOT(SlotSirenOn(int)));
+    QObject::connect(this, SIGNAL(SignalIOSirenOff(int)), &InputOutput, SLOT(SlotSirenOff(int)));
+
+    QObject::connect(&InputOutput, SIGNAL(SignalBat12VState(bool)), this, SLOT(SlotIOBat12VState(bool)));
+
+
+
+    IOThread.start();
+    emit SignalIOConfigure();
+
+}
+
+void CustomScene::TemperatureSetup()
+{
+
+    int i;
+    TempDevice device;
+    QStringList sensorList;
+
+
+    // setup temperature tempDevice
+    device.SensorP.T = (float)0;
+    device.SensorN.T = (float)0;
+    device.SensorP.T = (float)0;
+    device.SensorN.T  = (float)0;
+    device.HighTemp = (float)0;
+    device.AlarmStatus = asNone;
+    device.a1muted = false;
+    device.a2muted = false;
+
+
+    // batteries
+    for (i=tdBatA; i<=tdFrontAmbient; i++)
+    {
+        // copy alias, alarms first else A1/A2 will be 0 when tempDevice[i] = device is executed
+        device.Alias = tempDevice[i].Alias;
+        device.Alarm1 = tempDevice[i].Alarm1;
+        device.Alarm2 = tempDevice[i].Alarm2;
+        device.SensorP.Alias = tempDevice[i].SensorP.Alias;
+        device.SensorN.Alias = tempDevice[i].SensorN.Alias;
+        device.SensorP.Serial = tempDevice[i].SensorP.Serial;
+        device.SensorN.Serial = tempDevice[i].SensorN.Serial;
+        tempDevice[i] = device;
+    }
+
+
+
+    /* Bus 1 */
+    // Order: (1) controller case (2) BF1+ (3) BF2+ (4) BF3+ (5) BF4+ (6) Motor case (7) Ambient RHS
+    sensorList.clear();
+    sensorList.append(tempDevice[tdController].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatA].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatB].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatC].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatD].SensorP.Serial);
+    sensorList.append(tempDevice[tdMotor].SensorN.Serial);
+    sensorList.append(tempDevice[tdFrontAmbient].SensorP.Serial);
+    //qDebug() << sensorList[0];
+
+    Buses[0].BusInitialise(busAddress[0], sensorList,1);
+    // move agent to thread
+    Buses[0].moveToThread(&BusThread[0]);
+
+    // caller signals to agent slots
+    QObject::connect(this, SIGNAL(SignalBus1Configure(bool)), &Buses[0], SLOT(SlotCallerBusAccess(bool)));
+
+    // agent signals to caller slots
+    QObject::connect(&Buses[0], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus1NewTemps(QStringList)));
+    QObject::connect(&Buses[0], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
+    BusThread[0].start();
+
+
+
+
+    /* Bus 2 */
+    sensorList.clear();
+    // Order: (1) Front ambient LHS (2) Controller (3) BF2- (4) BF1- (5) BF3- (6) BF4- (7) Motor
+    sensorList.append(tempDevice[tdFrontAmbient].SensorN.Serial);
+    sensorList.append(tempDevice[tdController].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatB].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatA].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatC].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatD].SensorN.Serial);
+    sensorList.append(tempDevice[tdMotor].SensorP.Serial);
+
+    Buses[1].BusInitialise(busAddress[1], sensorList,2);
+    // move agent to thread
+    Buses[1].moveToThread(&BusThread[1]);
+
+    // widget signals to bus object slots
+    QObject::connect(this, SIGNAL(SignalBus2Configure(bool)), &Buses[1], SLOT(SlotCallerBusAccess(bool)));
+
+
+    // agent signals to caller slots
+    QObject::connect(&Buses[1], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus2NewTemps(QStringList)));
+    QObject::connect(&Buses[1], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
+    BusThread[1].start();
+
+
+
+
+    /* Bus 3 */
+    sensorList.clear();
+    // Order: (1) RA1+ (2) RA2+ (3) RA3+ (4) RA4+ (5) RB4+ (6) RB3+ (7) RB2+ (8) RB1+ (9) Back Ambient 1
+    sensorList.append(tempDevice[tdBatE].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatF].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatG].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatH].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatL].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatK].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatJ].SensorP.Serial);
+    sensorList.append(tempDevice[tdBatI].SensorP.Serial);
+    sensorList.append(tempDevice[tdBackAmbient].SensorP.Serial);
+    Buses[2].BusInitialise(busAddress[2], sensorList,3);
+    // move agent to thread
+    Buses[2].moveToThread(&BusThread[2]);
+
+    // widget signals to bus object slots
+    QObject::connect(this, SIGNAL(SignalBus3Configure(bool)), &Buses[2], SLOT(SlotCallerBusAccess(bool)));
+
+
+    // agent signals to caller slots
+    QObject::connect(&Buses[2], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus3NewTemps(QStringList)));
+    QObject::connect(&Buses[2], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
+    BusThread[2].start();
+
+
+
+    /* Bus 4 */
+    sensorList.clear();
+    // Order: (1) RA1- (2) RA2- (3) RA3- (4) RA4- (5) RB4- (6) RB3- (7) RB2- (8) RB1- (9) Back Ambient 2
+    sensorList.append(tempDevice[tdBatE].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatF].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatG].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatH].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatL].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatK].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatJ].SensorN.Serial);
+    sensorList.append(tempDevice[tdBatI].SensorN.Serial);
+    sensorList.append(tempDevice[tdBackAmbient].SensorN.Serial);
+    Buses[3].BusInitialise(busAddress[3], sensorList,4);
+    // move agent to thread
+    Buses[3].moveToThread(&BusThread[3]);
+
+    // caller signals to agent slots
+    QObject::connect(this, SIGNAL(SignalBus4Configure(bool)), &Buses[3], SLOT(SlotCallerBusAccess(bool)));
+
+
+    // widget signals to bus object slots
+    QObject::connect(&Buses[3], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus4NewTemps(QStringList)));
+    QObject::connect(&Buses[3], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
+    BusThread[3].start();
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

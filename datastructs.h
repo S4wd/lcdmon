@@ -51,7 +51,6 @@ struct PowerDevice {
 struct IODevice {
     bool Bat12VGood;
     bool Bat12VMuted;
-    bool ignition;
 };
 
 #endif // DATASTRUCTS_H
