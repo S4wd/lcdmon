@@ -24,6 +24,7 @@ public:
 
 signals:
     void        SignalCallerBusNewTemps(QStringList Newtemps);
+    void        SignalCallerBusInitialised(int thrno);
 
 public slots:
     void        SlotCallerBusAccess( bool connect );

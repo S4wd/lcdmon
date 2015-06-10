@@ -65,7 +65,7 @@ void AlarmSpinnerItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *
 
     // up arrow
     QPainterPath upArrowFrame;
-    QPixmap uparrow(":/up.png");
+    QPixmap uparrow(PNG_IMAGE_UP);
     upArrowFrame.addRoundedRect(QRectF(5,5,240,100),5,5);
     if (UpArrow == bsPressed)
     {
@@ -86,7 +86,7 @@ void AlarmSpinnerItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *
 
     // down arrow
     QPainterPath downArrowFrame;
-    QPixmap downarrow(":/down.png");
+    QPixmap downarrow(PNG_IMAGE_DOWN);
     downArrowFrame.addRoundedRect(QRectF(5,245,240,100),5,5);
     if (DownArrow == bsPressed)
     {
@@ -236,18 +236,18 @@ CustomScene::CustomScene(QObject *parent)
     MuteActive = false;
     WifiActive = false;
 
-    BvMuteButton = new ToggleButtonItem(QPixmap(":/muteoff.png"),QPixmap(":/muteon.png"));
-    DvMuteButton = new ToggleButtonItem(QPixmap(":/muteoff.png"),QPixmap(":/muteon.png"));
-    TickButton = new ButtonItem(QPixmap(":/tick.png"));
-    BatBankViewButton = new ButtonItem(QPixmap(":/batcharge.png"));
-    ConfigButton = new ButtonItem(QPixmap(":/config.png"));
-    ReturnButton = new ButtonItem(QPixmap(":/back.png"));
-    DriveViewButton = new ButtonItem(QPixmap(":/gauge.png"));
-    ShutDownButton = new ButtonItem(QPixmap(":/shutdown.png"));
-    DVShutdownButton = new ButtonItem(QPixmap(":/shutdown.png"));
-    BVShutdownButton= new ButtonItem(QPixmap(":/shutdown.png"));
-    ShutdownReturnButton = new ButtonItem(QPixmap(":/back.png"));
-    WifiApButton = new ToggleButtonItem(QPixmap(":/wifioff.png"), QPixmap(":/wifion.png"));
+    BvMuteButton = new ToggleButtonItem(QPixmap(PNG_IMAGE_MUTE_OFF),QPixmap(PNG_IMAGE_MUTE_ON));
+    DvMuteButton = new ToggleButtonItem(QPixmap(PNG_IMAGE_MUTE_OFF),QPixmap(PNG_IMAGE_MUTE_ON));
+    TickButton = new ButtonItem(QPixmap(PNG_IMAGE_TICK));
+    BatBankViewButton = new ButtonItem(QPixmap(PNG_IMAGE_BATCHARGE));
+    ConfigButton = new ButtonItem(QPixmap(PNG_IMAGE_CONFIG));
+    ReturnButton = new ButtonItem(QPixmap(PNG_IMAGE_RETURN));
+    DriveViewButton = new ButtonItem(QPixmap(PNG_IMAGE_GAUGE));
+    ShutDownButton = new ButtonItem(QPixmap(PNG_IMAGE_SHUTDOWN));
+    DVShutdownButton = new ButtonItem(QPixmap(PNG_IMAGE_SHUTDOWN));
+    BVShutdownButton= new ButtonItem(QPixmap(PNG_IMAGE_SHUTDOWN));
+    ShutdownReturnButton = new ButtonItem(QPixmap(PNG_IMAGE_RETURN));
+    WifiApButton = new ToggleButtonItem(QPixmap(PNG_IMAGE_WIFI_OFF), QPixmap(PNG_IMAGE_WIFI_ON));
 
     QObject::connect(&SpinnerHoldDownTimer, SIGNAL(timeout()), this, SLOT(SlotSpinnerDownTimerTimeout()));
     QObject::connect(&SpinnerHoldDownActiveTimer, SIGNAL(timeout()), this, SLOT(SlotSpinnerDownActiveTimerTimeout()));
@@ -343,10 +343,16 @@ void CustomScene::DisplaySetValue(int display)
 
 
     else if (display == tdBankVoltage)
+    {
         VoltGauge.setValue(PowerData->Voltage.reading);
+        vNeedle.setValue(PowerData->Voltage.reading);
+    }
 
     else if (display == tdBankCurrent)
+    {
         AmpGauge.setValue(PowerData->Current.reading);
+        aNeedle.setValue(PowerData->Current.reading);
+    }
 
     if ( CurrentView == &HighDefTempView && display == DisplaySettingsDeviceIndex )
     {
@@ -437,9 +443,14 @@ void CustomScene::LoadDriverDisplay()
 
     VoltGauge.setParentItem(&DrivingView);
     VoltGauge.setPos(0,0);
+    vNeedle.setParentItem(&DrivingView);
+    vNeedle.setPos(168,35);
+
 
     AmpGauge.setParentItem(&DrivingView);
     AmpGauge.setPos(0,240);
+    aNeedle.setParentItem(&DrivingView);
+    aNeedle.setPos(168,275);
 
     // motor
     Motor.setParentItem(&DrivingView);
@@ -473,7 +484,7 @@ void CustomScene::LoadDriverDisplay()
     DvMuteButton->setParentItem(&DrivingView);
     DvMuteButton->setPos(520,390);
 
-    // wifif button
+    // wifi button
     WifiApButton->setParentItem(&DrivingView);
     WifiApButton->setPos(430,390);
 
@@ -727,18 +738,27 @@ void CustomScene::WifiPress()
 
 void CustomScene::WifiTurnOn()
 {
+#ifdef Q_OS_WIN
+    qDebug() << "Turn on wifi.";
+#else
     QString ifup = "./wifiapp";
     QStringList argslist = QStringList() << "on";
     qDebug() << "Turning wifi on.";
     wifiApOn.start(ifup,argslist);
+#endif
 }
 
 void CustomScene::WifiTurnOff()
 {
+#ifdef Q_OS_WIN
+    qDebug() << "Turn off wifi.";
+#else
+
     QString ifup = "./wifiapp";
     QStringList argslist = QStringList() << "off";
     qDebug() << "Turning wifi off.";
     wifiApOn.start(ifup,argslist);
+#endif
 }
 
 void CustomScene::SlotSpinnerDownTimerTimeout()
@@ -1213,10 +1233,10 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
     {
         AlarmConfigView.SetTitle(QString("Bank Current"));
         A1Spinner.setValue(PowerData->Current.alarm1);
-        A1Spinner.setParameters(suCurrent,1, 0, 240, stA1);
+        A1Spinner.setParameters(suCurrent,1, 0, 399, stA1);
         A2Spinner.setValue(PowerData->Current.alarm2);
         SpinUnits = suCurrent;
-        A2Spinner.setParameters(suCurrent,1, 0, 240, stA2);
+        A2Spinner.setParameters(suCurrent,1, 0, 399, stA2);
         DisplaySettingsDeviceIndex = tdBankCurrent;
         ReturnView = &DrivingView;
         ChangeView(&AlarmConfigView);
@@ -1233,11 +1253,56 @@ void CustomScene::UpdateMutedAlarmMap()
     for (int i=0; i<=tdFrontAmbient; i++)
     {
         if (DevicesData[i].AlarmStatus == asAlarm1)
+        {
             DevicesData[i].a1muted = true;
-
+            DevicesData[i].a2muted = false;
+        }
         else if (DevicesData[i].AlarmStatus == asAlarm2)
+        {
+            DevicesData[i].a1muted = false;
             DevicesData[i].a2muted = true;
+        }
+        else
+        {
+            DevicesData[i].a1muted = false;
+            DevicesData[i].a2muted = false;
+        }
     }
+
+    if (PowerData->Current.status == asAlarm1)
+    {
+
+        PowerData->Current.a1muted = true;
+        PowerData->Current.a2muted = false;
+    }
+    else if (PowerData->Current.status == asAlarm2)
+    {
+        PowerData->Current.a1muted = false;
+        PowerData->Current.a2muted = true;
+    }
+    else
+    {
+        PowerData->Current.a1muted = false;
+        PowerData->Current.a2muted = false;
+    }
+
+    if (PowerData->Voltage.status == asAlarm1)
+    {
+
+        PowerData->Voltage.a1muted = true;
+        PowerData->Voltage.a2muted = false;
+    }
+    else if (PowerData->Voltage.status == asAlarm2)
+    {
+        PowerData->Voltage.a1muted = false;
+        PowerData->Voltage.a2muted = true;
+    }
+    else
+    {
+        PowerData->Voltage.a1muted = false;
+        PowerData->Voltage.a2muted = false;
+    }
+
 }
 
 
@@ -1264,9 +1329,6 @@ VoltGaugeItem::VoltGaugeItem()
     flash = new QGraphicsColorizeEffect;
     flash->setEnabled(false);
     setGraphicsEffect(flash);
-
-    vNeedle.setParentItem(this);
-    vNeedle.setPos(155,38);
 }
 
 VoltGaugeItem::~VoltGaugeItem()
@@ -1301,16 +1363,68 @@ void VoltGaugeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
     painter->drawText( QPointF(380,120), QString("%1V").arg(s.number( Volts, 'f', 1)));
 
 
+    QColor red = QColor(254,58,19,255);
+    QColor orange = QColor(255,255,0,255);
+    QColor green = QColor(120,173,21,255);
+
+    pen.setWidth(1);
+    pen.setColor(QColor(Qt::black));
+    painter->setPen(pen);
+
     // draw volt gauge
-    QPixmap voltgauge(":/voltgauge.png");
-    painter->drawPixmap(5,0,350,180,voltgauge);
+    QRectF rect;
+    int startAngle;
+    int spanAngle;
+
+    // red overcharge area
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 0;
+    spanAngle = 10*16;
+
+    painter->setBrush(QBrush(red));
+    painter->drawPie(rect,startAngle,spanAngle);
+
+    // green
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 10*16;
+    spanAngle = 110*16;
+    painter->setBrush(QBrush(green));
+
+    painter->drawPie(rect,startAngle,spanAngle);
+
+    // amber
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 120*16;
+    spanAngle = 30*16;
+    painter->setBrush(QBrush(orange));
+    painter->drawPie(rect,startAngle,spanAngle);
+
+    // red discharge
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 150*16;
+    spanAngle = 30*16;
+    painter->setBrush(QBrush(red));
+    painter->drawPie(rect,startAngle,spanAngle);
+
+
+    // labels
+    font.setPointSize(10);
+    pen.setColor(QColor(Qt::black));
+    painter->setPen(pen);
+    painter->setFont(font);
+    painter->drawText( QPointF(10,170), QString("42V"));
+    painter->drawText( QPointF(40,95), QString("46V"));
+    painter->drawText( QPointF(100,40), QString("48V"));
+    painter->drawText( QPointF(315,145), QString("59V"));
+
+
 
 }
 
 void VoltGaugeItem::setValue(float volts)
 {
     Volts = volts;
-    vNeedle.setValue(volts);
+
     update();
 }
 
@@ -1377,8 +1491,7 @@ CurrentGaugeItem::CurrentGaugeItem()
     flash->setEnabled(false);
     setGraphicsEffect(flash);
 
-    aNeedle.setParentItem(this);
-    aNeedle.setPos(155,38);
+
 }
 
 CurrentGaugeItem::~CurrentGaugeItem()
@@ -1411,15 +1524,64 @@ void CurrentGaugeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *
 
     painter->drawText(QPointF(380,120), QString("%1A").arg(s.number( Amps, 'f', 0)));
 
-    // draw amp gauge
-    QPixmap ampgauge(":/ampgauge.png");
-    painter->drawPixmap(5,0,350,180,ampgauge);
+    QColor red = QColor(254,58,19,255);
+    QColor orange = QColor(255,255,0,255);
+    QColor green = QColor(120,173,21,255);
+
+    pen.setWidth(1);
+    pen.setColor(QColor(Qt::black));
+    painter->setPen(pen);
+
+    // draw volt gauge
+    QRectF rect;
+    int startAngle;
+    int spanAngle;
+
+    // red overcharge area
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 0;
+    spanAngle = 10*16;
+
+    painter->setBrush(QBrush(red));
+    painter->drawPie(rect,startAngle,spanAngle);
+
+    // green
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 180*16;
+    spanAngle = -90*16;
+    painter->setBrush(QBrush(green));
+
+    painter->drawPie(rect,startAngle,spanAngle);
+
+    // amber
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 90*16;
+    spanAngle = -45*16;
+    painter->setBrush(QBrush(orange));
+    painter->drawPie(rect,startAngle,spanAngle);
+
+    // red discharge
+    rect.setCoords(5.0,5.0,350.0,350.0);
+    startAngle = 45*16;
+    spanAngle = -45*16;
+    painter->setBrush(QBrush(red));
+    painter->drawPie(rect,startAngle,spanAngle);
+
+
+    // labels
+    font.setPointSize(10);
+    pen.setColor(QColor(Qt::black));
+    painter->setPen(pen);
+    painter->setFont(font);
+    painter->drawText( QPointF(10,170), QString("0A"));
+    painter->drawText( QPointF(180,20), QString("200A"));
+    painter->drawText( QPointF(260,60), QString("300A"));
+    painter->drawText( QPointF(315,170), QString("400A"));
 }
 
 void CurrentGaugeItem::setValue(float amps)
 {
     Amps = amps;
-    aNeedle.setValue(amps);
     update();
 }
 
@@ -1482,7 +1644,7 @@ AnalogNeedleItem::~AnalogNeedleItem()
 
 QRectF AnalogNeedleItem::boundingRect() const
 {
-    return QRectF(0,0,31,130);
+    return QRectF(0,0,20,150);
 }
 
 void AnalogNeedleItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
@@ -1490,15 +1652,30 @@ void AnalogNeedleItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *
     Q_UNUSED(option);
     Q_UNUSED(widget);
 
-    QPixmap needle(":/needle.png");
-    painter->drawPixmap(0,0,51,160,needle);
+    QPainterPath path;
+    path.moveTo(10.0,0.0);
+    path.lineTo(0.0,130.0);
+    path.arcTo(0.0,130.0,20.0,20.0,180,180);
+    path.lineTo(10.0,0.0);
+    QPen pen;
+    pen.setColor(QColor(Qt::black));
+    pen.setWidth(1);
+    painter->setPen(pen);
+    painter->setBrush(QBrush(QColor(45,45,45,200)));
+    painter->drawPath(path);
+
+    pen.setColor(QColor(Qt::black));
+    painter->setPen(pen);
+    painter->setBrush(QBrush(QColor(120,120,120,255)));
+
+    painter->drawEllipse(5.0,135.0,10.0,10.0);
 }
 
 void AnalogNeedleItem::setValue(float value)
 {
     Value = value;
     ValueToAngleTransformation();
-    setTransformOriginPoint(25,137);
+    setTransformOriginPoint(10,140);
     setRotation(Angle);
 }
 
@@ -1516,7 +1693,7 @@ VoltNeedle::~VoltNeedle()
 
 void VoltNeedle::ValueToAngleTransformation()
 {
-    Angle = -90 + (qreal)((Value-40) * 15);
+    Angle = -90 + (qreal)((Value-42) * 10);
 
     if ( Angle > 90 )
         Angle = 90;
@@ -1539,7 +1716,7 @@ AmpNeedle::~AmpNeedle()
 
 void AmpNeedle::ValueToAngleTransformation()
 {
-    Angle = -90 + (qreal)(Value*3/4);
+    Angle = -90 + (qreal)(Value*0.45);
 
     if ( Angle > 90 )
         Angle = 90;
@@ -1609,7 +1786,7 @@ void BatteryDisplayItem::paint(QPainter *painter, const QStyleOptionGraphicsItem
     Q_UNUSED(widget);
     QString s;
 
-    QPixmap battery(":/bat.png");
+    QPixmap battery(PNG_IMAGE_BAT);
     painter->drawPixmap(0,0,160,100,battery);
 
 
@@ -2249,7 +2426,7 @@ Battery12VItem::Battery12VItem()
 {
     BatTitle = QString("12V Battery");
     BatstateColour = new QGraphicsColorizeEffect;
-    BatstateColour->setEnabled(true);
+    BatstateColour->setEnabled(false);
     setGraphicsEffect(BatstateColour);
 }
 
@@ -2267,9 +2444,8 @@ void Battery12VItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
 {
     Q_UNUSED(option);
     Q_UNUSED(widget);
-    QString s;
 
-    QPixmap battery(":/bat.png");
+    QPixmap battery(PNG_IMAGE_BAT);
     painter->drawPixmap(0,0,160,100,battery);
 
 
@@ -2294,9 +2470,12 @@ void Battery12VItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *op
 void Battery12VItem::setState(bool state)
 {
     if (state)
-        BatstateColour->setColor(QColor(Qt::green));
+        BatstateColour->setEnabled(false);
     else
+    {
+        BatstateColour->setEnabled(true);
         BatstateColour->setColor(QColor(Qt::red));
+    }
 }
 
 void Battery12VItem::setTitle(QString title)

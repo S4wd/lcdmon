@@ -10,8 +10,13 @@
 #include <QStringList>
 #include <QDateTime>
 
+#ifdef Q_OS_WIN
+#define TEMPERATURE_LOGGING_FILE               "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Temp\\%1temp"
+#define TEMPERATURE_META_FILE                  "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Temp\\meta"
+#else
 #define TEMPERATURE_LOGGING_FILE               "/home/s4wd/logging/temperature/%1temp"
 #define TEMPERATURE_META_FILE                  "/home/s4wd/logging/temperature/meta"
+#endif
 
 class Logger : public QObject
 {

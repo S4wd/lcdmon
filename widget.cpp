@@ -14,7 +14,7 @@ Widget::Widget(QWidget *parent) :
     scene = new CustomScene(this);
     ui->graphicsView->setScene(scene);
     ui->graphicsView->setRenderHint(QPainter::Antialiasing);
-    ui->graphicsView->rotate(180);
+    //ui->graphicsView->rotate(180);
     scene->setSceneRect(0,0,800,480);
     ui->graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -30,6 +30,7 @@ Widget::Widget(QWidget *parent) :
     IOAgentSetup();
     PowerAgentSetup();
     TemperatureSetup();
+    SignalBus1Configure(true);
 
     scene->Initialise(tempDevice, &ioDevice, &powerDevice);
 
@@ -206,6 +207,9 @@ void Widget::SlotBus3NewTemps(QStringList newtemps)
 
 void Widget::SlotBus4NewTemps(QStringList newtemps)
 {
+
+    //qDebug() << newtemps;
+
     // Order: (1) RA1- (2) RA2- (3) RA3- (4) RA4- (5) RB4- (6) RB3- (7) RB2- (8) RB1- (9) Back Ambient 2
     tempDevice[tdBatE].SensorN.T = newtemps.at(0).toFloat();
     HIGHER_TEMP(tempDevice[tdBatE].HighTemp, tempDevice[tdBatE].SensorP.T, tempDevice[tdBatE].SensorN.T);
@@ -243,13 +247,16 @@ void Widget::SlotPowerNewReadings(QStringList readings)
     if (readings.count() != 2)
         return;
 
+    //qDebug() << readings;
+
+
     float current = readings[0].toFloat();
     if (current >= 0 && current < 401)
         powerDevice.Current.reading = current;
 
 
     float voltage = readings[1].toFloat();
-    if (voltage >= 40 && current < 52.1)
+    if (voltage >= 40 && voltage < 52.1)
         powerDevice.Voltage.reading = voltage;
 
     DevicesUpdateAlarmStatus();
@@ -299,10 +306,7 @@ void Widget::SlotFlashTimerTimeout()
         scene->DisplayFlashNow(tdBankCurrent);
 }
 
-void Widget::SlotIOBat12VTimerTimeout()
-{
 
-}
 
 
 
@@ -316,6 +320,27 @@ void Widget::SlotLoggingTimerTimeout()
         Record << QString("%1").arg( s.number( tempDevice[i].HighTemp, 'f', 1) );
 
     emit SignalLoggingNewRecord(Record);
+}
+
+void Widget::SlotBusInitialised(int threadno)
+{
+    switch(threadno)
+    {
+    case 1:
+        qDebug() << QString("Reply: 1. Configure 2.");
+        SignalBus2Configure(true);
+        break;
+    case 2:
+        qDebug() << QString("Reply: 2. Configure 3.");
+        SignalBus3Configure(true);
+        break;
+    case 3:
+        qDebug() << QString("Reply: 3. Configure 4.");
+        SignalBus4Configure(true);
+        break;
+    default:
+        qDebug() << QString("Unknown threadno: %1").arg(threadno);
+    }
 }
 
 
@@ -413,7 +438,7 @@ void Widget::DevicesUpdateAlarmStatus()
         scene->DisplayStartFlashing(asAlarm1, tdBankCurrent);
         A1Visual = true;
         if (!powerDevice.Current.a1muted && !powerDevice.Current.a2muted)
-            A2Audio = true;
+            A1Audio = true;
     }
 
     else
@@ -435,9 +460,15 @@ void Widget::DevicesUpdateAlarmStatus()
         FlashTimer.stop();
 
     if (A2Audio)
+    {
+        SignalIOSirenOff(SIREN_TYPE_A1_PULSE);
         SignalIOSirenOn(SIREN_TYPE_A2_CONSTANT);
+    }
     else if (A1Audio)
+    {
+        SignalIOSirenOff(SIREN_TYPE_A2_CONSTANT);
         SignalIOSirenOn(SIREN_TYPE_A1_PULSE);
+    }
     else
     {
         SignalIOSirenOff(SIREN_TYPE_A1_PULSE);
@@ -558,8 +589,9 @@ void Widget::TemperatureSetup()
 
     // agent signals to caller slots
     QObject::connect(&Buses[0], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus1NewTemps(QStringList)));
+    QObject::connect(&Buses[0], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
     BusThread[0].start();
-    emit SignalBus1Configure(true);
+
 
 
 
@@ -584,8 +616,9 @@ void Widget::TemperatureSetup()
 
     // agent signals to caller slots
     QObject::connect(&Buses[1], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus2NewTemps(QStringList)));
+    QObject::connect(&Buses[1], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
     BusThread[1].start();
-    emit SignalBus2Configure(true);
+
 
 
 
@@ -611,8 +644,9 @@ void Widget::TemperatureSetup()
 
     // agent signals to caller slots
     QObject::connect(&Buses[2], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus3NewTemps(QStringList)));
+    QObject::connect(&Buses[2], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
     BusThread[2].start();
-    emit SignalBus3Configure(true);
+
 
 
     /* Bus 4 */
@@ -637,8 +671,9 @@ void Widget::TemperatureSetup()
 
     // widget signals to bus object slots
     QObject::connect(&Buses[3], SIGNAL(SignalCallerBusNewTemps(QStringList)), this, SLOT(SlotBus4NewTemps(QStringList)));
+    QObject::connect(&Buses[3], SIGNAL(SignalCallerBusInitialised(int)),this, SLOT(SlotBusInitialised(int)));
     BusThread[3].start();
-    emit SignalBus4Configure(true);
+
 
 
 }

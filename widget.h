@@ -18,7 +18,7 @@
 #define HIGHER_TEMP(a,b,c)     a = (b > c) ? b:c
 
 
-const QStringList busAddress = QStringList() << "/dev/ttyS1" << "/dev/ttyS2" << "/dev/ttyS3" << "/dev/ttyS4";
+const QStringList busAddress = QStringList() << "/dev/ttyS2" << "/dev/ttyS3" << "/dev/ttyS4" << "/dev/ttyS5";
 
 
 
@@ -40,12 +40,12 @@ public:
 private slots:
 
     void                SlotFlashTimerTimeout();
-    void                SlotIOBat12VTimerTimeout();
     void                SlotLoggingTimerTimeout();
 
 public slots:
 
     // temperatures
+    void                SlotBusInitialised(int threadno);
     void                SlotBus1NewTemps(QStringList newtemps);
     void                SlotBus2NewTemps(QStringList newtemps);
     void                SlotBus3NewTemps(QStringList newtemps);
@@ -59,6 +59,8 @@ public slots:
     void                SlotIOBat12VState(bool state);
 
 signals:
+
+    // GPS
 
     // power
     void                SignalPowerConfigure();
@@ -102,6 +104,7 @@ private:
 
     QTimer              FlashTimer;
     QTimer              LoggingTimer;
+
 
 
     void                GetConfiguration();

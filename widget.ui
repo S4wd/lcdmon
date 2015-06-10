@@ -47,7 +47,8 @@
     </size>
    </property>
    <property name="styleSheet">
-    <string notr="true">background-image: url(:/backimage3.jpg);
+    <string notr="true">background-image: url(:/icons/backimage3.jpg);
+
 </string>
    </property>
   </widget>

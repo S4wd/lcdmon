@@ -19,13 +19,36 @@
 #include "datastructs.h"
 
 #define DEGREE                          QChar(0260)
-#define SPINNER_HOLD_PRESS_TRIGGER      800
+#define SPINNER_HOLD_PRESS_TRIGGER      200
 #define SPINNER_HOLD_PRESS_TIMEOUT      180
 
-//#define S4WD_CONFIGURATION_FILE         "s4wd.ini"
+#ifdef Q_OS_WIN
+#define S4WD_CONFIGURATION_FILE         "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Config\\s4wd.ini"
+#define S4WD_DEBUG_FILE                 "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Debug\\%1s4wd.dbg"
+#else
 #define S4WD_CONFIGURATION_FILE         "/home/s4wd/config/s4wd.ini"
 #define S4WD_CONFIGURATION_BAK_FILE     "/home/s4wd/config/s4wdbak.ini"
 #define S4WD_DEBUG_FILE                 "/home/s4wd/config/%1s4wd.dbg"
+#endif
+
+
+
+#define PNG_IMAGE_UP                    ":/icons/up.png"
+#define PNG_IMAGE_DOWN                  ":/icons/down.png"
+#define PNG_IMAGE_MUTE_OFF              ":/icons/muteoff.png"
+#define PNG_IMAGE_MUTE_ON               ":/icons/muteon.png"
+#define PNG_IMAGE_TICK                  ":/icons/tick.png"
+#define PNG_IMAGE_BATCHARGE             ":/icons/batcharge.png"
+#define PNG_IMAGE_CONFIG                ":/icons/config.png"
+#define PNG_IMAGE_RETURN                ":/icons/back.png"
+#define PNG_IMAGE_GAUGE                 ":/icons/gauge.png"
+#define PNG_IMAGE_SHUTDOWN              ":/icons/shutdown.png"
+#define PNG_IMAGE_WIFI_ON               ":/icons/wifion.png"
+#define PNG_IMAGE_WIFI_OFF              ":/icons/wifioff.png"
+#define PNG_IMAGE_VOLT_GAUGE            ":/icons/voltgauge.png"
+#define PNG_IMAGE_AMP_GAUGE             ":/icons/ampgauge.png"
+#define PNG_IMAGE_NEEDLE                ":/icons/needle.png"
+#define PNG_IMAGE_BAT                   ":/icons/bat.png"
 
 enum TDisplayView {dvNotSetYet, dvDriver, dvBatteryBank, dvTemp, dvAlarmConfig};
 
@@ -165,7 +188,7 @@ public:
     TAlarmState flashEvent();
 
 private:
-   VoltNeedle vNeedle;
+
    float Volts;
    bool flashOn;
    TAlarmState AlarmFlashEvent;
@@ -187,7 +210,7 @@ public:
     TAlarmState flashEvent();
 
 private:
-   AmpNeedle aNeedle;
+
    float Amps;
    bool flashOn;
    TAlarmState AlarmFlashEvent;
@@ -381,7 +404,9 @@ protected:
     BatteryDisplayItem BatT[12];
     Battery12VItem Bat12V;
     VoltGaugeItem VoltGauge;
+    VoltNeedle vNeedle;
     CurrentGaugeItem AmpGauge;
+    AmpNeedle aNeedle;
 
     AlarmSpinnerItem A1Spinner;
     AlarmSpinnerItem A2Spinner;

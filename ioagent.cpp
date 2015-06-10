@@ -50,6 +50,8 @@ void IOAgent::SlotBatStateTimerTimeout()
 
 void IOAgent::SlotConfigure()
 {
+    qDebug() << "IO Thread ID:  " << QThread::currentThreadId();
+
     PCAProcess = new QProcess(this);
     QObject::connect(PCAProcess, SIGNAL(finished(int)), this, SLOT(SlotPCAProcessFinished(int)));
 
@@ -145,15 +147,25 @@ void IOAgent::SlotSirenOff(int sirenType)
 
 void IOAgent::ConfigureIO()
 {
+#ifdef Q_OS_WIN
+    qDebug() << "Configure IO.";
+
+#else
+
     runningCmd = pcaConfigure;
     QString pcaapp = PCA9536_PATH;
     QStringList argslist = QStringList() << "-c" << "2";
     qDebug() << "Configure IO.";
     PCAProcess->start(pcaapp,argslist);
+#endif
 }
 
 void IOAgent::AlarmA1On()
 {
+#ifdef Q_OS_WIN
+    qDebug() << "A1 on.";
+
+#else
     if (PCAProcess->state()  != QProcess::NotRunning)
     {
         pcaCmd.append(pcaA1On);
@@ -165,10 +177,16 @@ void IOAgent::AlarmA1On()
     QStringList argslist = QStringList() << "-1" << "2";
     qDebug() << "A1 on.";
     PCAProcess->start(pcaapp,argslist);
+#endif
 }
 
 void IOAgent::AlarmA1Off()
 {
+#ifdef Q_OS_WIN
+    qDebug() << "A1 off.";
+
+#else
+
     if (PCAProcess->state() != QProcess::NotRunning)
     {
         pcaCmd.append(pcaA1Off);
@@ -180,10 +198,16 @@ void IOAgent::AlarmA1Off()
     QStringList argslist = QStringList() << "-0" << "2";
     qDebug() << "A1 off.";
     PCAProcess->start(pcaapp,argslist);
+#endif
 }
 
 void IOAgent::AlarmA2On()
 {
+
+#ifdef Q_OS_WIN
+    qDebug() << "A2 on.";
+
+#else
     if (PCAProcess->state()  != QProcess::NotRunning)
     {
         pcaCmd.append(pcaA2On);
@@ -195,10 +219,16 @@ void IOAgent::AlarmA2On()
     QStringList argslist = QStringList() << "-2" << "2";
     qDebug() << "A2 on.";
     PCAProcess->start(pcaapp,argslist);
+#endif
 }
 
 void IOAgent::AlarmA2Off()
 {
+#ifdef Q_OS_WIN
+    qDebug() << "A2 off.";
+
+#else
+
     if (PCAProcess->state()  != QProcess::NotRunning)
     {
         pcaCmd.append(pcaA2Off);
@@ -210,10 +240,16 @@ void IOAgent::AlarmA2Off()
     QStringList argslist = QStringList() << "-0" << "2";
     qDebug() << "A2 off.";
     PCAProcess->start(pcaapp,argslist);
+#endif
 }
 
 void IOAgent::ReadBat12VState()
 {
+#ifdef Q_OS_WIN
+    qDebug() << "12V good.";
+    emit SignalBat12VState(true);
+#else
+
     if (PCAProcess->state()  != QProcess::NotRunning)
     {
         pcaCmd.append(pcaReadBatState);
@@ -226,4 +262,5 @@ void IOAgent::ReadBat12VState()
 
     // QProcess process;
     PCAProcess->start(pcaapp,argslist);
+#endif
 }

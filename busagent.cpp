@@ -4,11 +4,13 @@
 #include <QThread>
 #include <QDebug>
 
+#ifdef Q_OS_WIN
 
+#else
 extern "C" {
 #include "s4wd.h"
 }
-
+#endif
 
 BusAgent::BusAgent(QObject *parent)
 {   
@@ -43,21 +45,29 @@ void BusAgent::SlotCallerBusAccess(bool connect)
 
     if ( connect )
     {
+#ifdef Q_OS_WIN
+    BusPortNumber = 1;
+#else
         if (BusPortNumber < 0)
             BusPortNumber = s4d_OWAcquireBusController( BusAddress.toLatin1().data() );
         qDebug() << QString("Bus port number: %1").arg(BusPortNumber);
-
-        if (TempSampleTimer != NULL)
-        {
+#endif
+        emit SignalCallerBusInitialised(ThreadNo);
+//        if (TempSampleTimer != NULL)
+  //      {
             TempSampleTimer = new QTimer;
             QObject::connect(TempSampleTimer, SIGNAL(timeout()), this, SLOT(TempSampleTimerTimeout()));
             TempSampleTimer->start(15000);
-        }
+    //    }
 
     }
+
+#ifdef Q_OS_WIN
+
+#else
     else
         s4d_OWReleaseBusController( BusPortNumber );
-
+#endif
 
 }
 
@@ -69,32 +79,38 @@ void BusAgent::TempSampleTimerTimeout()
 
 void BusAgent::ReadTemperatures()
 {
-    qint16 i;
+
     QStringList temps;
     QString tstr;
     QString s;
-    float tempf;
-
-    if (BusPortNumber < 0)
-    {
-    qDebug() << "BusPortNumber < 0. Acquiring ...";
-    BusPortNumber = s4d_OWAcquireBusController( BusAddress.toLatin1().data() );
-	return;
-    }
+    qint16 i;
 
     for (i=0; i<SensorCount; i++)
     {
+
+#ifdef Q_OS_WIN
+
+        tstr = QString("%1").arg(s.number( (float)( qrand() % (35 - 26)+26 ), 'f', 1));
+        temps.append(tstr);
+#else
+
+        float tempf;
+        if (BusPortNumber < 0)
+        {
+            qDebug() << "BusPortNumber < 0. Acquiring ...";
+            BusPortNumber = s4d_OWAcquireBusController( BusAddress.toLatin1().data() );
+            return;
+        }
+
         tempf = s4d_OWReadTemperature( BusPortNumber, Sensors[i].toLatin1().data() );
-	//qDebug() << QString("Thr: %1 Bus:%2: Sensor:%3 Temp: %4").arg(ThreadNo).arg(BusAddress).arg(Sensors[i].toLatin1().data()).arg(s.number(tempf, 'f', 1));
+        //qDebug() << QString("Thr: %1 Bus:%2: Sensor:%3 Temp: %4").arg(ThreadNo).arg(BusAddress).arg(Sensors[i].toLatin1().data()).arg(s.number(tempf, 'f', 1));
 
-	//if ( tempf == 200.0 )
-        //	tstr = QString("%1").arg(s.number( (float)( qrand() % (35 - 26)+26 ), 'f', 1));
-        //else
-	tstr = QString("%1").arg(s.number( tempf, 'f', 1 ));
-	temps.append(tstr);
+
+        tstr = QString("%1").arg(s.number( tempf, 'f', 1 ));
+        temps.append(tstr);
+
+#endif
     }
-
-
     //qDebug() << "Thread ID New temps ready:  " << QThread::currentThreadId();
     emit SignalCallerBusNewTemps(temps);
 }

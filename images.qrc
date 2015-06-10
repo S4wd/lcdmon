@@ -1,21 +1,21 @@
 <RCC>
     <qresource prefix="/">
-        <file>backimage3.jpg</file>
-        <file>down.png</file>
-        <file>up.png</file>
-        <file>needle.png</file>
-        <file>ampgauge.png</file>
-        <file>voltgauge.png</file>
-        <file>bat.png</file>
-        <file>back.png</file>
-        <file>config.png</file>
-        <file>gauge.png</file>
-        <file>shutdown.png</file>
-        <file>tick.png</file>
-        <file>muteoff.png</file>
-        <file>muteon.png</file>
-        <file>batcharge.png</file>
-        <file>wifioff.png</file>
-        <file>wifion.png</file>
+        <file>icons/ampgauge.png</file>
+        <file>icons/back.png</file>
+        <file>icons/backimage3.jpg</file>
+        <file>icons/bat.png</file>
+        <file>icons/batcharge.png</file>
+        <file>icons/config.png</file>
+        <file>icons/down.png</file>
+        <file>icons/gauge.png</file>
+        <file>icons/muteoff.png</file>
+        <file>icons/muteon.png</file>
+        <file>icons/needle.png</file>
+        <file>icons/shutdown.png</file>
+        <file>icons/tick.png</file>
+        <file>icons/up.png</file>
+        <file>icons/voltgauge.png</file>
+        <file>icons/wifioff.png</file>
+        <file>icons/wifion.png</file>
     </qresource>
 </RCC>

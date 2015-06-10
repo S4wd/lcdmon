@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 
     Widget w;
     w.setWindowFlags(Qt::FramelessWindowHint);
-    w.setCursor(Qt::BlankCursor);
+    //w.setCursor(Qt::BlankCursor);
     w.show();
 
     return a.exec();

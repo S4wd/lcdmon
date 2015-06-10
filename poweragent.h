@@ -16,10 +16,13 @@
 
 
 
-
-
+#ifdef Q_OS_WIN
+#define POWER_LOG_FILE      "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Power\\%1power"
+#define POWER_META_FILE      "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\debug\\Power\\meta"
+#else
 #define POWER_LOG_FILE      "/home/s4wd/logging/power/%1power"
 #define POWER_META_FILE      "/home/s4wd/logging/power/meta"
+#endif
 
 struct DataRecord {
         QString datetime;

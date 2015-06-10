@@ -41,7 +41,8 @@ public:
         sizePolicy.setHeightForWidth(graphicsView->sizePolicy().hasHeightForWidth());
         graphicsView->setSizePolicy(sizePolicy);
         graphicsView->setMaximumSize(QSize(800, 480));
-        graphicsView->setStyleSheet(QString::fromUtf8("background-image: url(:/backimage3.jpg);\n"
+        graphicsView->setStyleSheet(QString::fromUtf8("background-image: url(:/icons/backimage3.jpg);\n"
+"\n"
 ""));
 
         retranslateUi(Widget);

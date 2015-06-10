@@ -17,10 +17,10 @@ void PowerAgent::SlotConfigure()
     getMeta();
     loggingToFile = false;
 
-    qDebug() << " Thread ID:  " << QThread::currentThreadId();
+    qDebug() << "Power Thread ID:  " << QThread::currentThreadId();
 
-    /*QTime time = QTime::currentTime();
-    qsrand((uint)time.msec());*/
+    QTime time = QTime::currentTime();
+    qsrand((uint)time.msec());
 
     // ADS process
     ADSProcess = new QProcess(this);
@@ -90,17 +90,38 @@ void PowerAgent::SlotADSFinished(int exitstatus)
 
 void PowerAgent::LogToFile()
 {
+    bool vehicleMoving = false;
 
+    qint16 totalSamples = myData.count();
+    DataRecord record;
+    QString s;
+
+    for (int i=0; i<totalSamples; i++)
+    {
+        record = myData[i];
+        if (record.current != 0.0)
+        {
+            vehicleMoving = true;
+            break;
+        }
+    }
+
+    if (!vehicleMoving)
+    {
+        // clear buffered data
+        myData.clear();
+        qDebug() << "Vehicle not moving. Won't log to file.";
+        return;
+    }
 
     QFile f(QString(POWER_LOG_FILE).arg(filePrefix));
     f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
     QTextStream out(&f);
 
 
-    DataRecord record;
-    QString s;
 
-    qint16 totalSamples = myData.count();
+
+
 
     for (int i=0; i<totalSamples; i++)
     {
@@ -164,10 +185,24 @@ void PowerAgent::ProcessNewData()
 
 void PowerAgent::ADSRead()
 {
+#ifdef Q_OS_WIN
+    QStringList readings;
+    QString s;
+    newdata.current = (float)( qrand() % (180 - 150)+150 );
+    newdata.voltage = (float)( qrand() % (50 - 48)+48 );
+    readings << QString("%1").arg(s.number(newdata.current,'f',1))
+             << QString("%1").arg(s.number(newdata.voltage,'f',1));
+
+    emit SignalNewReading(readings);
+
+    ProcessNewData();
+#else
+
     QString adsapp = "/usr/src/qt/s4wd_test/ADS1115";
     QStringList argslist = QStringList() << "get";
     //qDebug() << "Start Bankvoltage reading.";
     ADSProcess->start(adsapp,argslist);
+#endif
 }
 
 
