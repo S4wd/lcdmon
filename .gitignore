@@ -7,6 +7,4 @@ moc_*
 *.debug
 *.Release
 s4wd
-/Data/Charge/
-/Data/Discharge/
 Makefile

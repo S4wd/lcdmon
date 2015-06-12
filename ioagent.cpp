@@ -23,11 +23,18 @@ void IOAgent::SlotPCAProcessFinished(int exitstatus)
 
     if (runningCmd == pcaReadBatState)
     {
+
         if (PCAProcess->exitCode() == 1)
+        {
+            qDebug() << "Io Process: 12V good.";
             emit SignalBat12VState(true);
+        }
 
         else if (PCAProcess->exitCode() == 0)
+        {
+            qDebug() << "Io Process: 12V bad.";
             emit SignalBat12VState(false);
+        }
     }
 
 
@@ -153,7 +160,7 @@ void IOAgent::ConfigureIO()
 #else
 
     runningCmd = pcaConfigure;
-    QString pcaapp = PCA9536_PATH;
+    QString pcaapp = QString(PCA9536_PATH);
     QStringList argslist = QStringList() << "-c" << "2";
     qDebug() << "Configure IO.";
     PCAProcess->start(pcaapp,argslist);
@@ -253,6 +260,7 @@ void IOAgent::ReadBat12VState()
     if (PCAProcess->state()  != QProcess::NotRunning)
     {
         pcaCmd.append(pcaReadBatState);
+        qDebug() << "Io process running. Cmd 12VbatRead queued.";
         return;
     }
 

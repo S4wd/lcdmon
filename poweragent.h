@@ -14,22 +14,12 @@
 #include <QFile>
 #include <QSettings>
 
+#define ADS1115_PATH            "/usr/src/s4wd/ADS1115"
 
-
-#ifdef Q_OS_WIN
-#define POWER_LOG_FILE      "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Power\\%1power"
-#define POWER_META_FILE      "C:\\Users\\vxc\\Workspace S4wd\\lcdmon\\Data\\Power\\meta"
-#else
-#define POWER_LOG_FILE      "/home/s4wd/logging/power/%1power"
-#define POWER_META_FILE      "/home/s4wd/logging/power/meta"
-#endif
 
 struct DataRecord {
-        QString datetime;
         float current;
         float voltage;
-        float velocity;
-        float altitude;
 };
 
 

@@ -516,6 +516,7 @@ private:
     bool MuteActive;
     bool WifiActive;
     bool ChargeProfileActive;
+    int moving;
     QStringList loggerData;
 
     void GetConfiguration();

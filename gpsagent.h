@@ -6,6 +6,7 @@
 #include <QProcess>
 #include <QDebug>
 #include <QThread>
+#include <QFile>
 
 class GpsAgent : public QObject
 {
@@ -22,11 +23,11 @@ public slots:
 
 private slots:
     void ReadGpsTimerTimeout();
-    void SlotProcessFinished(int, QProcess::ExitStatus);
+    //void SlotProcessFinished(int, QProcess::ExitStatus);
 
 private:
     QTimer * ReadGpsTimer;
-    QProcess devTTyS;
+    //QProcess devTTyS;
 };
 
 #endif // GPSAGENT_H

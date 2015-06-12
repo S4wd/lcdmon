@@ -38,4 +38,4 @@ RESOURCES += \
 
 
 
-#LIBS += -L/usr/src/1w/builds/uLinuxGNU -ls4wd
+LIBS += -L/usr/src/1w/builds/uLinuxGNU -ls4wd

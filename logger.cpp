@@ -20,16 +20,8 @@ void LoggerAgent::SlotStartNewLogSession(bool charge)
     charging = charge;
 
     QDateTime dateTime = dateTime.currentDateTime();
-    session = dateTime.toString("ddd_dd_HH_mm");
+    session = dateTime.toString("ddd_dd_MM_HH_mm");
 
-    QDir dir;
-    if (charge)
-        dir.setPath(QString(CHARGE_PROFILE_LOG_DIR));
-    else
-        dir.setPath(QString(DISCHARGE_PROFILE_LOG_DIR));
-
-    if (dir.mkdir(session))
-        qDebug() << QString("New session: %1").arg(session);
 }
 
 // Charge - volts, battery and ambient temperatures
@@ -39,7 +31,7 @@ void LoggerAgent::ProfileLog(QStringList record)
     if (record.empty())
     {
         if (charging)
-            qDebug() << "Ccharge profile emtpy record.";
+            qDebug() << "Charge profile emtpy record.";
         else
             qDebug() << "Discharge profile emtpy record.";
         return;
@@ -51,10 +43,14 @@ void LoggerAgent::ProfileLog(QStringList record)
     else
         logfile = QString(DISCHARGE_PROFILE_LOG_FILE).arg(session);
 
+
+    qDebug() << logfile;
     QFile f(logfile);
-    f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text))
+        qDebug() << "Unable to open file for appending.";
     QTextStream out(&f);
     out << record.at(0);
+    out << endl;
 
     for (int i=1; i<record.count(); i++)
     {

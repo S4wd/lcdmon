@@ -10,7 +10,10 @@ Widget::Widget(QWidget *parent) :
     scene = new CustomScene(this);
     ui->graphicsView->setScene(scene);
     ui->graphicsView->setRenderHint(QPainter::Antialiasing);
-    //ui->graphicsView->rotate(180);
+#ifdef Q_OS_WIN
+#else
+    ui->graphicsView->rotate(180);
+#endif
     scene->setSceneRect(0,0,800,480);
     ui->graphicsView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->graphicsView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);

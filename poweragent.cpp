@@ -87,7 +87,7 @@ void PowerAgent::ADSRead()
     emit SignalNewReading(readings);
 #else
 
-    QString adsapp = "/usr/src/qt/s4wd_test/ADS1115";
+    QString adsapp = QString(ADS1115_PATH);
     QStringList argslist = QStringList() << "get";
     //qDebug() << "Start Bankvoltage reading.";
     ADSProcess->start(adsapp,argslist);

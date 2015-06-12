@@ -13,7 +13,7 @@
 #define SIREN_TYPE_A1_PULSE         1
 #define SIREN_TYPE_A2_CONSTANT      2
 
-#define PCA9536_PATH            "/usr/src/qt/s4wd_test/PCA9536"
+#define PCA9536_PATH            "/usr/src/s4wd/PCA9536"
 
 enum TSirenType {stA1Pulse, stA2Constant};
 enum QPCACommand {pcaNone, pcaConfigure, pcaReadIgnition, pcaReadBatState, pcaA1On, pcaA1Off, pcaA2On, pcaA2Off};

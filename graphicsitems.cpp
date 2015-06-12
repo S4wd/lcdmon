@@ -246,7 +246,7 @@ CustomScene::CustomScene(QObject *parent)
     IOAgentSetup();
     PowerAgentSetup();
     TemperatureSetup();
-    SignalBus1Configure(true);
+    emit SignalBus1Configure(true);
 
 
     MuteActive = false;
@@ -281,6 +281,7 @@ CustomScene::CustomScene(QObject *parent)
 
 
     ChargeProfileActive = true;
+    moving = 0;
     DataCaptureTimer.start(CHARGE_PROFILE_DATA_CAPTURE_TIME);
 }
 
@@ -1363,20 +1364,21 @@ void CustomScene::SlotIOBat12VState(bool state)
 
 void CustomScene::SlotGpsNewData(QStringList newData)
 {
-    if (newData.count() != 5)
+    if (newData.count() != 7)
     {
         qDebug() << "Gps data missing.";
         return;
     }
 
     gpsData.latitude = newData[0];
-    gpsData.longitude = newData[1];
-    gpsData.speed = newData[2];
-    gpsData.altitude = newData[3];
-    gpsData.heading = newData[4];
+    gpsData.longitude = newData[2];
+    gpsData.speed = newData[4];
+    gpsData.heading = newData[5];
+    gpsData.altitude = newData[6];
 
     float speed = gpsData.speed.toFloat();
-    if (speed == 0)
+
+/*    if (speed == 0 && powerDevice.current.reading == 0)
     {
         if (!ChargeProfileActive)
         {
@@ -1387,7 +1389,7 @@ void CustomScene::SlotGpsNewData(QStringList newData)
         ChargeProfileActive = true;
     }
     else
-    {
+    {*/
         if (ChargeProfileActive)
         {
             emit SignalLoggingProfileChanged(false);
@@ -1395,7 +1397,7 @@ void CustomScene::SlotGpsNewData(QStringList newData)
         }
 
         ChargeProfileActive = false;
-    }
+    //}
 }
 
 
@@ -1476,15 +1478,16 @@ void CustomScene::SlotBusInitialised(int threadno)
     {
     case 1:
         qDebug() << QString("Reply: 1. Configure 2.");
-        SignalBus2Configure(true);
+        emit SignalBus2Configure(true);
         break;
     case 2:
         qDebug() << QString("Reply: 2. Configure 3.");
-        SignalBus3Configure(true);
+        emit SignalBus3Configure(true);
         break;
     case 3:
         qDebug() << QString("Reply: 3. Configure 4.");
-        SignalBus4Configure(true);
+        emit SignalBus4Configure(true);
+        emit SignalGpsInitialise();
         break;
     default:
         qDebug() << QString("Unknown threadno: %1").arg(threadno);
@@ -2000,7 +2003,7 @@ void CustomScene::GpsSetup()
 
     GpsThread.start();
 
-    emit SignalGpsInitialise();
+
 
 }
 

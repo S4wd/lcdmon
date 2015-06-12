@@ -38,8 +38,10 @@
 #define S4WD_DEBUG_FILE                       "/home/s4wd/config/%1s4wd.dbg"
 #define CHARGE_PROFILE_LOG_DIR                "/home/s4wd/logging/Charge/"
 #define DISCHARGE_PROFILE_LOG_DIR             "/home/s4wd/logging/Discharge/"
-#define CHARGE_PROFILE_LOG_FILE               "/home/s4wd/logging/Charge/%1/dat.log"
-#define DISCHARGE_PROFILE_LOG_FILE            "/home/s4wd/logging/Discharge/%1/dat.log"
+//#define CHARGE_PROFILE_LOG_FILE               "/home/s4wd/logging/Charge/%1/dat.log"
+//#define DISCHARGE_PROFILE_LOG_FILE            "/home/s4wd/logging/Discharge/%1/dat.log"
+#define DISCHARGE_PROFILE_LOG_FILE            "/home/s4wd/logging/D_%1.log"
+#define CHARGE_PROFILE_LOG_FILE               "/home/s4wd/logging/C_%1.log"
 #endif
 
 class LoggerAgent : public QObject
